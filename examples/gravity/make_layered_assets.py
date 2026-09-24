@@ -8,9 +8,11 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 W, H = 1290, 2796
 
-# Five large cut-out plates plus one bottom disc.
-# All plates occupy the same broad area; only their openings change. This makes
-# every stage read as a surface that the next stage is recessed behind.
+# Six visible stages:
+# five full-screen cut-out plates + one full-screen bottom image.
+#
+# Every slice has the same outer extent. The nested geometry is created only by
+# punching progressively smaller holes through the plates above it.
 COLORS = [
     (18, 86, 75, 255),
     (27, 112, 94, 255),
@@ -20,22 +22,19 @@ COLORS = [
     (137, 229, 204, 255),
 ]
 
-# The shared large plate. It intentionally extends close to the sides of the
-# screen; per-layer overscan supplies additional hidden pixels during motion.
-PLATE = (58, 655, W - 58, 2275, 180)
-
-# Cut-out openings, outer/top -> inner/bottom. Compared with the previous
-# revision these openings are smaller, leaving visibly thicker plate edges.
-HOLES = [
-    (190, 820, W - 190, 2110, 145),
-    (285, 940, W - 285, 1990, 125),
-    (380, 1070, W - 380, 1860, 105),
-    (470, 1200, W - 470, 1730, 82),
+# Restore the opening sizes from the earlier six-stage version.
+# These were the INNER contours of the old ring-based artwork, so using them as
+# holes keeps the familiar proportions while every layer itself is now full-screen.
+ROUNDED_HOLES = [
+    (135, 790, W - 135, 2140, 150),
+    (210, 900, W - 210, 2030, 130),
+    (300, 1030, W - 300, 1900, 108),
+    (405, 1180, W - 405, 1750, 82),
 ]
-CENTER = (W // 2, 1465, 128)
+CENTER = (W // 2, 1465, 165)
 
-# Upper stages move least; deeper stages have more hidden border because their
-# apparent motion is larger.
+# The logical artwork on every layer is full-screen. The expanded canvases below
+# only provide hidden pixels outside the viewport for parallax safety.
 OVERSCANS = [1.035, 1.055, 1.085, 1.12, 1.17, 1.24]
 BACKGROUND_OVERSCAN = 1.32
 
@@ -79,6 +78,12 @@ def _shape_mask(size, ox: int, oy: int, shape) -> Image.Image:
     raise ValueError(f"unknown shape: {shape[0]}")
 
 
+def _full_surface_alpha(size) -> Image.Image:
+    # Fully opaque across the entire oversized canvas. At rest this presents a
+    # screen-sized plate; the extra area is only hidden overscan.
+    return Image.new("L", size, 255)
+
+
 def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
     draw = ImageDraw.Draw(canvas)
@@ -91,100 +96,106 @@ def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     cx, cy = ox + W // 2, oy + 1465
-    gd.ellipse((cx - 420, cy - 420, cx + 420, cy + 420), fill=(100, 245, 222, 12))
-    glow = glow.filter(ImageFilter.GaussianBlur(145))
+    gd.ellipse((cx - 420, cy - 420, cx + 420, cy + 420), fill=(100, 245, 222, 10))
+    glow = glow.filter(ImageFilter.GaussianBlur(150))
     return Image.alpha_composite(canvas, glow)
+
+
+def _soft_hole_highlight(hole: Image.Image, surface_alpha: Image.Image) -> Image.Image:
+    # Build a two-scale highlight. The broad component starts the transition
+    # gently; the narrow component increases brightness smoothly as it approaches
+    # the cut-out edge. There is no dark shadow component.
+    broad = hole.filter(ImageFilter.GaussianBlur(58)).point(
+        lambda p: min(18, int(p * 0.07))
+    )
+    near = hole.filter(ImageFilter.GaussianBlur(17)).point(
+        lambda p: min(42, int(p * 0.17))
+    )
+    alpha = ImageChops.add(broad, near)
+    alpha = ImageChops.multiply(alpha, surface_alpha)
+
+    highlight = Image.new("RGBA", hole.size, (228, 255, 248, 255))
+    highlight.putalpha(alpha)
+    return highlight
 
 
 def plate_slice(hole_shape, color, scale: float) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
-    plate_alpha = _rounded_mask(canvas.size, ox, oy, PLATE)
+
+    surface_alpha = _full_surface_alpha(canvas.size)
     hole = _shape_mask(canvas.size, ox, oy, hole_shape)
-    plate_alpha = ImageChops.subtract(plate_alpha, hole)
+    visible_alpha = ImageChops.subtract(surface_alpha, hole)
 
     layer = Image.new("RGBA", canvas.size, color)
-    layer.putalpha(plate_alpha)
+    layer.putalpha(visible_alpha)
 
-    # Recess cue: a soft, low-opacity highlight immediately outside the opening.
-    # There is intentionally no dark shadow in this version.
-    blurred_hole = hole.filter(ImageFilter.GaussianBlur(20))
-    lip_alpha = ImageChops.multiply(blurred_hole, plate_alpha).point(
-        lambda p: min(52, int(p * 0.30))
-    )
-    lip = Image.new("RGBA", canvas.size, (224, 255, 247, 255))
-    lip.putalpha(lip_alpha)
-    layer = Image.alpha_composite(layer, lip)
+    # Soft highlight increment toward the cut-out edge.
+    # Mask with visible_alpha so no highlight leaks into the transparent hole.
+    highlight = _soft_hole_highlight(hole, visible_alpha)
+    layer = Image.alpha_composite(layer, highlight)
 
-    # Extremely subtle broad face lift so the plate still feels soft rather than
-    # like a flat vector cutout.
-    face = Image.new("RGBA", canvas.size, (255, 255, 255, 5))
-    face.putalpha(plate_alpha.point(lambda p: 5 if p else 0))
+    # Extremely subtle global lift keeps the large plate from appearing as a
+    # perfectly flat block while preserving the no-shadow design.
+    face = Image.new("RGBA", canvas.size, (255, 255, 255, 4))
+    face.putalpha(visible_alpha.point(lambda p: 4 if p else 0))
     return Image.alpha_composite(layer, face)
 
 
 def bottom_surface(color, scale: float) -> Image.Image:
-    # The visually bottom-most stage is a full-screen image, not a transparent
-    # circular sprite. The circular shape is created exclusively by the hole in
-    # the plate above it. This guarantees full coverage during larger parallax.
+    # The bottom-most "circle" is also a full-screen image. Its circular shape in
+    # the final composition comes solely from the circular hole in the plate above.
     canvas, ox, oy = _expanded_canvas(scale)
     layer = Image.new("RGBA", canvas.size, color)
 
-    # Gentle radial brightening centered behind the circular opening. The
-    # highlight extends well beyond the visible circle so motion remains smooth.
     cx, cy, _ = CENTER
     cx += ox
     cy += oy
+
+    # Broad, natural center lift extending far beyond the visible circular hole,
+    # so the gradient remains continuous when this deepest layer moves the most.
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
-    glow_radius = 300
+    radius = 360
     gd.ellipse(
-        (
-            cx - glow_radius,
-            cy - glow_radius,
-            cx + glow_radius,
-            cy + glow_radius,
-        ),
-        fill=(255, 255, 255, 22),
+        (cx - radius, cy - radius, cx + radius, cy + radius),
+        fill=(255, 255, 255, 18),
     )
-    glow = glow.filter(ImageFilter.GaussianBlur(90))
+    glow = glow.filter(ImageFilter.GaussianBlur(125))
 
-    # Subtle vertical lift keeps the full-screen bottom image from looking flat.
-    face = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    fd = ImageDraw.Draw(face)
-    fd.rectangle(
-        (0, max(0, cy - 520), canvas.width, min(canvas.height, cy + 520)),
-        fill=(255, 255, 255, 5),
-    )
-    face = face.filter(ImageFilter.GaussianBlur(180))
-
-    return Image.alpha_composite(Image.alpha_composite(layer, glow), face)
+    return Image.alpha_composite(layer, glow)
 
 
 def build(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
+
     for old in out_dir.glob("slice_*.png"):
         old.unlink()
 
     make_background().save(out_dir / "background.png")
 
-    for i, hole in enumerate(HOLES):
+    # Four full-screen plates with the restored rounded-rectangle openings.
+    for i, hole in enumerate(ROUNDED_HOLES):
         plate_slice(
             ("rounded",) + hole,
             COLORS[i],
             OVERSCANS[i],
         ).save(out_dir / f"slice_{i:02d}.png")
 
-    # The fifth plate opens into the bottom-most circular stage.
+    # Fifth full-screen plate with the restored circular opening.
     plate_slice(
         ("circle",) + CENTER,
-        COLORS[len(HOLES)],
-        OVERSCANS[len(HOLES)],
-    ).save(out_dir / f"slice_{len(HOLES):02d}.png")
+        COLORS[len(ROUNDED_HOLES)],
+        OVERSCANS[len(ROUNDED_HOLES)],
+    ).save(out_dir / f"slice_{len(ROUNDED_HOLES):02d}.png")
 
+    # Sixth/deepest layer is also a full-screen image.
     bottom_surface(COLORS[-1], OVERSCANS[-1]).save(
-        out_dir / f"slice_{len(HOLES) + 1:02d}.png"
+        out_dir / f"slice_{len(ROUNDED_HOLES) + 1:02d}.png"
     )
-    print(f"Generated {len(HOLES) + 2} slices + background in {out_dir}")
+
+    print(
+        f"Generated {len(ROUNDED_HOLES) + 2} full-screen slices + background in {out_dir}"
+    )
 
 
 def main() -> None:
