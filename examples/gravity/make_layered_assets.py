@@ -8,36 +8,30 @@ from PIL import Image, ImageDraw, ImageFilter
 
 W, H = 1290, 2796
 
-# Nine visible recessed stages: eight rounded-rectangle rings plus a center disc.
+# Six visible stages: five rounded-rectangle rings plus a center disc.
+# Fewer, broader steps read much more like the supplied recessed reference.
 COLORS = [
-    (17, 84, 73, 255),
-    (23, 103, 87, 255),
-    (30, 123, 101, 255),
-    (39, 145, 117, 255),
-    (50, 166, 133, 255),
-    (64, 187, 150, 255),
-    (82, 205, 167, 255),
-    (105, 220, 184, 255),
-    (145, 234, 207, 255),
+    (18, 86, 75, 255),
+    (27, 112, 94, 255),
+    (39, 143, 117, 255),
+    (56, 175, 141, 255),
+    (82, 205, 169, 255),
+    (137, 229, 204, 255),
 ]
 
 BOXES = [
-    (70, 680, W - 70, 2250, 170),
-    (105, 735, W - 105, 2195, 160),
-    (145, 800, W - 145, 2130, 148),
-    (190, 875, W - 190, 2055, 135),
-    (240, 960, W - 240, 1970, 121),
-    (300, 1055, W - 300, 1875, 106),
-    (370, 1160, W - 370, 1770, 91),
-    (445, 1275, W - 445, 1655, 72),
+    (76, 700, W - 76, 2230, 170),
+    (135, 790, W - 135, 2140, 150),
+    (210, 900, W - 210, 2030, 130),
+    (300, 1030, W - 300, 1900, 108),
+    (405, 1180, W - 405, 1750, 82),
 ]
-CENTER = (W // 2, 1465, 135)
+CENTER = (W // 2, 1465, 165)
 
-# Every layer image is intentionally larger than the screen. The builder uses
-# matching quad overscan so the artwork lines up at rest but still has hidden
-# pixels around the viewport during motion.
-OVERSCANS = [1.04, 1.055, 1.075, 1.10, 1.13, 1.165, 1.205, 1.25, 1.31]
-BACKGROUND_OVERSCAN = 1.38
+# The outer/top stage is nearly screen-sized and moves least.
+# Deeper-looking stages have progressively more hidden border available.
+OVERSCANS = [1.035, 1.055, 1.085, 1.12, 1.17, 1.24]
+BACKGROUND_OVERSCAN = 1.32
 
 
 def _expanded_canvas(scale: float) -> tuple[Image.Image, int, int]:
@@ -54,22 +48,41 @@ def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
     cw, ch = canvas.size
     for y in range(ch):
         t = min(1.0, max(0.0, (y - oy) / max(H - 1, 1)))
-        c = (7 + int(4 * t), 49 + int(9 * t), 43 + int(7 * t), 255)
+        c = (7 + int(4 * t), 48 + int(8 * t), 42 + int(6 * t), 255)
         draw.line((0, y, cw, y), fill=c)
 
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     cx, cy = ox + W // 2, oy + 1465
-    gd.ellipse((cx - 470, cy - 470, cx + 470, cy + 470), fill=(105, 255, 226, 16))
-    glow = glow.filter(ImageFilter.GaussianBlur(145))
+    gd.ellipse((cx - 460, cy - 460, cx + 460, cy + 460), fill=(95, 245, 220, 14))
+    glow = glow.filter(ImageFilter.GaussianBlur(150))
     return Image.alpha_composite(canvas, glow)
+
+
+def _inner_mask(size, ox: int, oy: int, inner_shape) -> Image.Image:
+    mask = Image.new("L", size, 0)
+    d = ImageDraw.Draw(mask)
+    if inner_shape[0] == "rounded":
+        _, ix0, iy0, ix1, iy1, ir = inner_shape
+        d.rounded_rectangle(
+            (ox + ix0, oy + iy0, ox + ix1, oy + iy1),
+            radius=ir,
+            fill=255,
+        )
+    else:
+        _, cx, cy, rr = inner_shape
+        d.ellipse(
+            (ox + cx - rr, oy + cy - rr, ox + cx + rr, oy + cy + rr),
+            fill=255,
+        )
+    return mask
 
 
 def ring_slice(outer_box, inner_shape, color, scale: float) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
-    alpha = Image.new("L", canvas.size, 0)
-    ad = ImageDraw.Draw(alpha)
 
+    ring_alpha = Image.new("L", canvas.size, 0)
+    ad = ImageDraw.Draw(ring_alpha)
     x0, y0, x1, y1, radius = outer_box
     ad.rounded_rectangle(
         (ox + x0, oy + y0, ox + x1, oy + y1),
@@ -77,23 +90,29 @@ def ring_slice(outer_box, inner_shape, color, scale: float) -> Image.Image:
         fill=255,
     )
 
-    if inner_shape[0] == "rounded":
-        _, ix0, iy0, ix1, iy1, ir = inner_shape
-        ad.rounded_rectangle(
-            (ox + ix0, oy + iy0, ox + ix1, oy + iy1),
-            radius=ir,
-            fill=0,
-        )
-    else:
-        _, cx, cy, rr = inner_shape
-        ad.ellipse(
-            (ox + cx - rr, oy + cy - rr, ox + cx + rr, oy + cy + rr),
-            fill=0,
-        )
+    hole = _inner_mask(canvas.size, ox, oy, inner_shape)
+    # Punch the hole out of the ring.
+    ring_alpha = Image.subtract(ring_alpha, hole)
 
     layer = Image.new("RGBA", canvas.size, color)
-    layer.putalpha(alpha)
-    return layer
+    layer.putalpha(ring_alpha)
+
+    # Darken the ring immediately around the inner edge. This cue is important:
+    # it makes the nested shapes read as a cavity even though the parallax motion
+    # is deliberately non-physical (deeper-looking stages move more).
+    blurred_hole = hole.filter(ImageFilter.GaussianBlur(26))
+    shadow_alpha = Image.new("L", canvas.size, 0)
+    sa = shadow_alpha.load()
+    bh = blurred_hole.load()
+    ra = ring_alpha.load()
+    for y in range(canvas.height):
+        for x in range(canvas.width):
+            if ra[x, y]:
+                sa[x, y] = int(min(82, bh[x, y] * 0.42))
+
+    shadow = Image.new("RGBA", canvas.size, (0, 22, 18, 255))
+    shadow.putalpha(shadow_alpha)
+    return Image.alpha_composite(layer, shadow)
 
 
 def center_circle(color, scale: float) -> Image.Image:
@@ -111,21 +130,19 @@ def center_circle(color, scale: float) -> Image.Image:
 
     highlight = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     hd = ImageDraw.Draw(highlight)
-    hd.ellipse((cx - 100, cy - 100, cx + 100, cy + 100), fill=(255, 255, 255, 34))
-    highlight = highlight.filter(ImageFilter.GaussianBlur(30))
-
-    # Keep the glow clipped inside the center disc.
-    clipped_alpha = Image.composite(
-        highlight.getchannel("A"),
-        Image.new("L", canvas.size, 0),
-        alpha,
-    )
-    highlight.putalpha(clipped_alpha)
+    hd.ellipse((cx - 118, cy - 118, cx + 118, cy + 118), fill=(255, 255, 255, 26))
+    highlight = highlight.filter(ImageFilter.GaussianBlur(34))
+    highlight.putalpha(Image.composite(highlight.getchannel("A"), Image.new("L", canvas.size, 0), alpha))
     return Image.alpha_composite(layer, highlight)
 
 
 def build(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove stale slices from previous layer-count experiments.
+    for old in out_dir.glob("slice_*.png"):
+        old.unlink()
+
     make_background().save(out_dir / "background.png")
 
     for i, outer in enumerate(BOXES):
@@ -133,9 +150,13 @@ def build(out_dir: Path) -> None:
             inner = ("rounded",) + BOXES[i + 1]
         else:
             inner = ("circle",) + CENTER
-        ring_slice(outer, inner, COLORS[i], OVERSCANS[i]).save(out_dir / f"slice_{i:02d}.png")
+        ring_slice(outer, inner, COLORS[i], OVERSCANS[i]).save(
+            out_dir / f"slice_{i:02d}.png"
+        )
 
-    center_circle(COLORS[-1], OVERSCANS[-1]).save(out_dir / f"slice_{len(BOXES):02d}.png")
+    center_circle(COLORS[-1], OVERSCANS[-1]).save(
+        out_dir / f"slice_{len(BOXES):02d}.png"
+    )
     print(f"Generated {len(BOXES) + 1} slices + background in {out_dir}")
 
 
