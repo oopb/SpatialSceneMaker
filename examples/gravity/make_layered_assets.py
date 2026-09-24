@@ -31,13 +31,11 @@ ROUNDED_HOLES = [
 ]
 CENTER = (W // 2, 1465, 165)
 
-# IMPORTANT:
-# All visual layers use the SAME overscan. Keep this close to the minimum
-# needed for tilt coverage so the visible viewport retains more texture detail.
-# Horizontal parallax tuning is done in the mesh builder, not by changing these
-# per-layer texture canvases.
-LAYER_OVERSCAN = 1.16
-OVERSCANS = [LAYER_OVERSCAN] * len(COLORS)
+# Restore the earlier sharp asset layout. Upper layers keep only a small hidden
+# margin, while deeper layers get progressively more safety area for parallax.
+# This preserves substantially more effective texture resolution on the upper
+# visible layers than forcing every slice to the deepest-layer overscan.
+OVERSCANS = [1.035, 1.055, 1.085, 1.12, 1.17, 1.24]
 BACKGROUND_OVERSCAN = 1.32
 
 
@@ -199,7 +197,7 @@ def build(out_dir: Path) -> None:
 
     print(
         f"Generated {len(rounded_shapes) + 2} full-screen slices + background "
-        f"in {out_dir}; common overscan={LAYER_OVERSCAN}"
+        f"in {out_dir}; overscans={OVERSCANS}"
     )
 
 
