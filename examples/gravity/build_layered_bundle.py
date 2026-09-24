@@ -21,29 +21,45 @@ from make_layered_assets import (
     W,
 )
 
-# Depth is proportional to the linear size of the visible window for each
-# stage. sqrt(area) is used as a single linear-size metric for windows with
-# different aspect ratios. The outer full-screen stage remains depth=55.
+# Restore the original useful parallax range while distributing the two added
+# layers according to the visible-window perimeter.
+OUTER_DEPTH = 55.0
+INNER_DEPTH = 3.7
+
+# The camera-space height above the deepest layer is proportional to the
+# perimeter of the window through which the next stage is viewed.
 #
 # Stage windows, outer -> inner:
-#   full screen, rounded hole 1..4, final circle.
-WINDOW_LINEAR_SCALES = [
-    math.sqrt(W * H),
-    *[
-        math.sqrt((x1 - x0) * (y1 - y0))
-        for x0, y0, x1, y1, _ in ROUNDED_HOLES
-    ],
-    float(CENTER[2] * 2),
+#   full screen,
+#   six geometrically similar rounded openings,
+#   terminal circular opening.
+SCREEN_PERIMETER = 2.0 * (W + H)
+ROUNDED_PERIMETERS = [
+    2.0 * ((x1 - x0) + (y1 - y0) - 4.0 * radius)
+    + 2.0 * math.pi * radius
+    for x0, y0, x1, y1, radius in ROUNDED_HOLES
 ]
-DEPTH_PER_LINEAR_PIXEL = 55.0 / WINDOW_LINEAR_SCALES[0]
-PARALLAX_DEPTHS = [
-    scale * DEPTH_PER_LINEAR_PIXEL
-    for scale in WINDOW_LINEAR_SCALES
+CIRCLE_PERIMETER = 2.0 * math.pi * CENTER[2]
+
+WINDOW_PERIMETERS = [
+    SCREEN_PERIMETER,
+    *ROUNDED_PERIMETERS,
+    CIRCLE_PERIMETER,
 ]
 
-# Keep backfill slightly beyond the deepest visual stage in the same motion
-# direction instead of leaving it on the old unrelated absolute scale.
-BACKFILL_PARALLAX_DEPTH = PARALLAX_DEPTHS[-1] * 0.85
+PERIMETER_MIN = WINDOW_PERIMETERS[-1]
+PERIMETER_MAX = WINDOW_PERIMETERS[0]
+
+PARALLAX_DEPTHS = [
+    INNER_DEPTH
+    + (perimeter - PERIMETER_MIN)
+    * (OUTER_DEPTH - INNER_DEPTH)
+    / (PERIMETER_MAX - PERIMETER_MIN)
+    for perimeter in WINDOW_PERIMETERS
+]
+
+# This remains essentially the old 3.15 backfill depth.
+BACKFILL_PARALLAX_DEPTH = INNER_DEPTH * 0.85
 
 
 def main() -> None:
@@ -57,12 +73,7 @@ def main() -> None:
     )
     ap.add_argument("-o", "--output", default="GravityLayered.spatialscene")
     ap.add_argument("--fov", type=float, default=45.0)
-
-    # 2048 worked for compatibility, but oversized layer canvases meant that the
-    # visible viewport used substantially fewer than 2048 texels. 3072 restores
-    # much of that lost effective resolution while staying reasonably sized.
     ap.add_argument("--texture-size", type=int, default=3072)
-
     ap.add_argument("--astcenc")
     ap.add_argument(
         "--astc-quality",
@@ -92,12 +103,8 @@ def main() -> None:
     if not bg_path.exists():
         raise SystemExit(f"Missing {bg_path}")
 
-    screen_width, screen_height = 1290, 2796
-    aspect = screen_width / screen_height
+    aspect = W / H
 
-    # Build painter order from visually deepest stage outward so upper plates
-    # cover lower stages during overlap. Keep the normal perspective geometry
-    # untouched so circles stay circular and X/Y use the same projection model.
     meshes = []
     for idx in reversed(range(len(PARALLAX_DEPTHS))):
         meshes.append(
@@ -174,8 +181,8 @@ def main() -> None:
     )
 
     project = build_v3_project(
-        screen_width,
-        screen_height,
+        W,
+        H,
         args.fov,
         (min(PARALLAX_DEPTHS), max(PARALLAX_DEPTHS)),
         (
@@ -188,14 +195,13 @@ def main() -> None:
         {
             "name": "SpatialSceneMaker recessed gravity",
             "strategy": (
-                "Six full-screen texture slices with no highlight overlay; "
-                "depths proportional to sqrt(visible-window area); "
-                "inner-to-outer painter order; normal perspective geometry "
-                "with globally reversed device-motion response."
+                "Eight full-screen texture slices; six geometrically similar "
+                "rounded openings plus a terminal circular opening; no "
+                "highlight overlay; relative layer height proportional to "
+                "window perimeter; normal device-motion direction."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
-            "windowLinearScalesOuterToInner": WINDOW_LINEAR_SCALES,
-            "depthPerLinearPixel": DEPTH_PER_LINEAR_PIXEL,
+            "windowPerimetersOuterToInner": WINDOW_PERIMETERS,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
@@ -205,9 +211,8 @@ def main() -> None:
         }
     )
 
-    # Reverse the renderer's device-motion response on both axes without
-    # distorting the layer geometry.
-    project["camera"]["motionRange"] = -0.025
+    # Restore the original direction and magnitude.
+    project["camera"]["motionRange"] = 0.025
     project["camera"]["overscan"] = 0.018
 
     (out / "project.json").write_text(
@@ -221,10 +226,10 @@ def main() -> None:
         f"main mesh: {len(main_vertices)} vertices / "
         f"{len(main_indices) // 3} triangles"
     )
-    print(f"window linear scales outer -> inner: {WINDOW_LINEAR_SCALES}")
+    print(f"window perimeters outer -> inner: {WINDOW_PERIMETERS}")
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
-    print("camera motion direction: reversed (motionRange=-0.025)")
+    print("camera motion direction: normal (motionRange=0.025)")
     print(
         f"texture: {args.texture_size}x{args.texture_size}, "
         f"ASTC quality={args.astc_quality}"
