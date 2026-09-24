@@ -4,7 +4,7 @@ import argparse
 import math
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw
 
 W, H = 1290, 2796
 
@@ -95,29 +95,6 @@ def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
     return canvas
 
 
-def _soft_hole_highlight(
-    hole: Image.Image,
-    visible_alpha: Image.Image,
-) -> Image.Image:
-    # Restore the previous lighting direction: the CURRENT plate brightens
-    # softly as it approaches its own cut-out edge.
-    #
-    # Two blur scales give a natural long transition plus a slightly stronger
-    # near-edge increment without introducing any dark shadow.
-    broad = hole.filter(ImageFilter.GaussianBlur(58)).point(
-        lambda p: min(18, int(p * 0.07))
-    )
-    near = hole.filter(ImageFilter.GaussianBlur(17)).point(
-        lambda p: min(42, int(p * 0.17))
-    )
-
-    alpha = ImageChops.add(broad, near)
-    alpha = ImageChops.multiply(alpha, visible_alpha)
-
-    highlight = Image.new("RGBA", hole.size, (228, 255, 248, 255))
-    highlight.putalpha(alpha)
-    return highlight
-
 
 def plate_slice(
     hole_shape,
@@ -132,12 +109,7 @@ def plate_slice(
 
     layer = Image.new("RGBA", canvas.size, color)
     layer.putalpha(visible_alpha)
-
-    # Brighten the current plate toward its own hole edge.
-    return Image.alpha_composite(
-        layer,
-        _soft_hole_highlight(hole, visible_alpha),
-    )
+    return layer
 
 
 def bottom_surface(
@@ -146,24 +118,8 @@ def bottom_surface(
 ) -> Image.Image:
     # The deepest stage is also a full-screen image. It remains fully opaque;
     # the circular appearance comes only from the cut-out in the layer above.
-    canvas, ox, oy = _expanded_canvas(scale)
-    layer = Image.new("RGBA", canvas.size, color)
-
-    cx, cy, _ = CENTER
-    cx += ox
-    cy += oy
-
-    # Keep the same soft center lift used before the lighting-direction change.
-    glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    radius = 360
-    gd.ellipse(
-        (cx - radius, cy - radius, cx + radius, cy + radius),
-        fill=(255, 255, 255, 18),
-    )
-    glow = glow.filter(ImageFilter.GaussianBlur(125))
-
-    return Image.alpha_composite(layer, glow)
+    canvas, _, _ = _expanded_canvas(scale)
+    return Image.new("RGBA", canvas.size, color)
 
 
 def build(out_dir: Path) -> None:
