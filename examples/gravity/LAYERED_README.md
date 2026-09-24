@@ -6,7 +6,7 @@ The current revision uses **six visible stages** built as **large plates with cu
 
 - four upper plates with progressively smaller rounded-rectangle openings;
 - one lower plate with a circular opening;
-- one center disc at the very bottom.
+- one full-screen bottom image revealed through the final circular opening.
 
 All five plates cover the same large rounded-rectangle region. They are not floating squares or rings: the next stage is only visible through the opening carved into the plate above it.
 
@@ -19,7 +19,7 @@ top opening    x=190..1100, y=820..2110
 next           x=285..1005, y=940..1990
 next           x=380..910,  y=1070..1860
 next           x=470..820,  y=1200..1730
-bottom circle  radius=128
+final opening  circle radius=128
 ```
 
 ## Recess cue
@@ -39,7 +39,7 @@ outer/top     55.0   -> smallest motion
 center/bottom  3.7   -> largest motion
 ```
 
-The mesh is emitted in **inner-to-outer painter order**, so upper plates cover lower stages whenever motion causes overlap.
+The mesh is emitted in **inner-to-outer painter order**, so upper plates cover lower stages whenever motion causes overlap. The bottom-most texture is fully opaque across its entire oversized canvas; the circular appearance comes only from the hole in the plate above it.
 
 ## Overscan
 
