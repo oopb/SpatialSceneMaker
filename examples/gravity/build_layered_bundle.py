@@ -12,21 +12,38 @@ from spatialscene_maker.mesh import build_full_frame_quad, merge_meshes
 from spatialscene_maker.project import build_v3_project, expanded_vertical_fov_rad
 from spatialscene_maker.texture import encode_astc_4x4_srgb_pil
 
-from make_layered_assets import BACKGROUND_OVERSCAN, OVERSCANS
+from make_layered_assets import (
+    BACKGROUND_OVERSCAN,
+    CENTER,
+    H,
+    OVERSCANS,
+    ROUNDED_HOLES,
+    W,
+)
 
-# Requested motion profile:
-# top/outer stage moves the least; each lower/inner stage moves more.
-# Larger camera-space depth produces less apparent translation, so values
-# decrease monotonically toward the center.
-PARALLAX_DEPTHS = [
-    55.0,
-    28.0,
-    15.0,
-    8.5,
-    5.2,
-    3.7,
+# Depth is proportional to the linear size of the visible window for each
+# stage. sqrt(area) is used as a single linear-size metric for windows with
+# different aspect ratios. The outer full-screen stage remains depth=55.
+#
+# Stage windows, outer -> inner:
+#   full screen, rounded hole 1..4, final circle.
+WINDOW_LINEAR_SCALES = [
+    math.sqrt(W * H),
+    *[
+        math.sqrt((x1 - x0) * (y1 - y0))
+        for x0, y0, x1, y1, _ in ROUNDED_HOLES
+    ],
+    float(CENTER[2] * 2),
 ]
-BACKFILL_PARALLAX_DEPTH = 3.15
+DEPTH_PER_LINEAR_PIXEL = 55.0 / WINDOW_LINEAR_SCALES[0]
+PARALLAX_DEPTHS = [
+    scale * DEPTH_PER_LINEAR_PIXEL
+    for scale in WINDOW_LINEAR_SCALES
+]
+
+# Keep backfill slightly beyond the deepest visual stage in the same motion
+# direction instead of leaving it on the old unrelated absolute scale.
+BACKFILL_PARALLAX_DEPTH = PARALLAX_DEPTHS[-1] * 0.85
 
 
 def main() -> None:
@@ -171,11 +188,14 @@ def main() -> None:
         {
             "name": "SpatialSceneMaker recessed gravity",
             "strategy": (
-                "Six full-screen texture slices; current-plate soft hole "
-                "highlights; inner-to-outer painter order; normal perspective "
-                "geometry with globally reversed device-motion response."
+                "Six full-screen texture slices with no highlight overlay; "
+                "depths proportional to sqrt(visible-window area); "
+                "inner-to-outer painter order; normal perspective geometry "
+                "with globally reversed device-motion response."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
+            "windowLinearScalesOuterToInner": WINDOW_LINEAR_SCALES,
+            "depthPerLinearPixel": DEPTH_PER_LINEAR_PIXEL,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
@@ -201,6 +221,7 @@ def main() -> None:
         f"main mesh: {len(main_vertices)} vertices / "
         f"{len(main_indices) // 3} triangles"
     )
+    print(f"window linear scales outer -> inner: {WINDOW_LINEAR_SCALES}")
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
     print("camera motion direction: reversed (motionRange=-0.025)")
