@@ -34,8 +34,8 @@ def main() -> None:
     ap.add_argument("asset_dir", nargs="?", default="examples/gravity/layered_assets")
     ap.add_argument("-o", "--output", default="GravityLayered.spatialscene")
     ap.add_argument("--fov", type=float, default=45.0)
-    ap.add_argument("--texture-size", type=int, default=2048)
-    ap.add_argument("--astcenc")
+    ap.add_argument("--texture-size", type=int, default=3072)
+    ap.add_argument("--astcenc")\n    ap.add_argument(\n        "--astc-quality",\n        choices=("fastest", "fast", "medium", "thorough", "verythorough", "exhaustive"),\n        default="thorough",\n    )
     ap.add_argument("--scene-id")
     args = ap.parse_args()
 
@@ -138,7 +138,7 @@ def main() -> None:
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
-            "compositingOrder": "inner-to-outer",
+            "compositingOrder": "inner-to-outer",\n            "textureSize": args.texture_size,\n            "astcQuality": args.astc_quality,
         }
     )
 
@@ -159,7 +159,7 @@ def main() -> None:
         f"{len(main_indices) // 3} triangles"
     )
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
-    print(f"overscans outer -> inner: {OVERSCANS}")
+    print(f"overscans outer -> inner: {OVERSCANS}")\n    print(f"texture: {args.texture_size}x{args.texture_size}, ASTC quality={args.astc_quality}")
     print("draw/compositing order: inner -> outer")
 
 
