@@ -1,93 +1,112 @@
 # Layered gravity demo
 
-This demo uses **eight full-screen texture slices**:
+The layered demo now follows `examples/gravity/make_assets.py` directly instead
+of maintaining a separately tuned geometry.
 
-- six full-screen plates with geometrically similar rounded-rectangle cut-outs;
-- one full-screen plate with the preserved circular cut-out;
-- one full-screen bottom image.
+## Layer count
 
-There is no highlight / glow overlay.
+`make_assets.py` contains seven visible discrete-depth regions:
 
-## Stronger color contrast
+1. outer background;
+2. rounded rectangle 1;
+3. rounded rectangle 2;
+4. rounded rectangle 3;
+5. rounded rectangle 4;
+6. rounded rectangle 5;
+7. center circle.
 
-Adjacent layers use separated green/teal values so the eight-stage stack remains
-readable without synthetic edge lighting.
+The layered implementation therefore uses **seven main texture slices** plus one
+backfill safety surface.
 
-## Smaller inner openings
+## Geometry
 
-The central circle is reduced to approximately half of the previous radius:
+The five rounded rectangles are copied exactly from `make_assets.py`:
 
 ```text
-center = (645, 1465)
-radius = 82
-diameter = 164
+margin 95,  top 720,  bottom 2190, radius 150
+margin 155, top 805,  bottom 2105, radius 135
+margin 220, top 900,  bottom 2010, radius 120
+margin 290, top 1000, bottom 1910, radius 105
+margin 365, top 1110, bottom 1800, radius 90
 ```
 
-The smallest rounded opening is also reduced:
+The center circle is also restored exactly:
 
 ```text
-300 x 356
-corner radius = 51
+center = (645, 1455)
+radius = 205
 ```
 
-All six rounded openings remain uniform scales of the same base shape. Their
-current outer -> inner geometry is approximately:
+The layered slices are decomposed as:
+
+- background outside rectangle 1;
+- five rounded rings;
+- center circle.
+
+At rest this reconstructs the same nested proportions as `make_assets.py`.
+
+## Depths
+
+The same discrete depth-map grayscale values are used:
 
 ```text
-1020 x 1210, r=173
- 799 x  948, r=136
- 625 x  742, r=106
- 489 x  581, r=83
- 383 x  455, r=65
- 300 x  356, r=51
-circle diameter 164
+255, 220, 185, 150, 115, 80, 45
 ```
 
-## Layer height
-
-Height above the bottom remains proportional to the opening perimeter.
-
-The current depth range remains:
+Using the same `near=1, far=8` inverse-depth conversion as the normal gravity
+demo gives:
 
 ```text
-outer depth = 75.0
-inner depth = 3.7
+1.000000
+1.136490
+1.316129
+1.563218
+1.924528
+2.503067
+3.578947
 ```
 
-With the smaller inner windows, the generated depths are approximately:
+These values match the actual depth levels found in the supplied
+`GravityWallpaper.spatialscene` reference.
+
+The backfill depth is restored to the reference value:
 
 ```text
-75.000
-59.543
-47.409
-37.911
-30.494
-24.671
-12.524
- 3.700
+8.4
 ```
 
-## Motion direction and amplitude
+## Camera direction
 
-The previous negative sign is removed and the motion amplitude is increased
-substantially:
+Commit history was checked rather than continuing to flip the sign manually:
+
+- `ef4ee9a`: first layered implementation used positive `motionRange=0.030`;
+- `e021f35` through `58da483`: stable layered period used positive
+  `motionRange=0.025`;
+- `8883b84`: first negative `motionRange` experiment;
+- later commits alternated the sign while tuning the demo.
+
+The supplied reference bundle itself uses:
 
 ```text
-camera.motionRange = 0.05
+camera.motionRange = 0.035
+camera.overscan = 0.015
 ```
 
-This restores the positive offset direction and doubles the earlier 0.025 motion
-amplitude.
+The layered version now restores those exact positive reference values.
 
-## Overscan
+## Mesh order
+
+The first layered implementation used outer-to-inner mesh construction. Because
+the current assets are non-overlapping background/ring/disc slices rather than
+full-screen opaque plates, that original order is restored:
 
 ```text
-1.035, 1.048, 1.062, 1.082, 1.105, 1.135, 1.18, 1.24
+outer -> inner
 ```
 
 ## Texture quality
 
-The layered builder defaults to:
+The layered builder still defaults to:
 
 ```text
 texture size = 3072x3072
