@@ -1,44 +1,50 @@
 # Layered gravity demo
 
-This demo uses six full-screen texture slices:
+This demo now uses **eight full-screen texture slices**:
 
-- four full-screen plates with rounded-rectangle cut-outs;
-- one full-screen plate with a circular cut-out;
-- one full-screen bottom image.
+- six full-screen plates with geometrically similar rounded-rectangle cut-outs;
+- one full-screen plate with the preserved circular cut-out;
+- one full-screen bottom image revealed through that circle.
 
-Every visual layer has the same outer extent. Nested depth is created only by
-cut-outs and painter order.
+There is no highlight / glow overlay.
 
-## Opening sizes
+## Proportional rounded openings
 
-```text
-opening 1   x=135..1155, y=790..2140, radius=150
-opening 2   x=210..1080, y=900..2030, radius=130
-opening 3   x=300..990,  y=1030..1900, radius=108
-opening 4   x=405..885,  y=1180..1750, radius=82
-final hole  circle radius=165
-```
-
-## No highlight overlay
-
-All per-layer highlight / glow effects are disabled in this revision.
-
-- cut-out edges are sharp alpha boundaries;
-- plate faces are flat colors;
-- the bottom full-screen image has no center glow.
-
-This isolates texture sharpness and parallax geometry from lighting effects.
-
-## Depth proportional to window size
-
-Each stage is assigned a linear window-size metric:
+The first rounded opening keeps the established size:
 
 ```text
-linear size = sqrt(window area)
+1020 x 1350, corner radius 150
 ```
 
-For the final circular window, the diameter is used directly. The six stage
-windows are:
+The sixth/innermost rounded opening keeps an approximately 480 px width. The
+five transitions between them use one fixed scale ratio:
+
+```text
+ratio ≈ 0.86005894
+```
+
+Therefore every rounded opening is a uniform scale of the same base shape:
+width, height, corner radius, and rounded-rectangle perimeter all scale together.
+
+The terminal circular opening is preserved:
+
+```text
+center = (645, 1465)
+radius = 165
+diameter = 330
+```
+
+## Layer height / depth
+
+The total parallax depth range is restored to the earlier useful range:
+
+```text
+outer depth = 55.0
+inner depth = 3.7
+```
+
+For the eight stages, relative camera-space height above the deepest stage is
+mapped linearly from the perimeter of the corresponding visible window:
 
 ```text
 full screen
@@ -46,39 +52,29 @@ rounded opening 1
 rounded opening 2
 rounded opening 3
 rounded opening 4
-final circular opening
+rounded opening 5
+rounded opening 6
+circular opening
 ```
 
-The outer full-screen stage remains at depth `55.0`. Every other main-layer
-depth is obtained by multiplying its linear window size by the same constant.
-The current generated values are approximately:
-
-```text
-55.000
-33.983
-28.714
-22.438
-15.148
- 9.557
-```
-
-So the depth ratios now exactly follow the ratios of the corresponding window
-linear sizes instead of using hand-tuned depth values.
-
-## Overscan
-
-The sharper per-layer overscan layout remains:
-
-```text
-1.035, 1.055, 1.085, 1.12, 1.17, 1.24
-```
+So larger-perimeter windows are higher/farther and smaller-perimeter windows are
+lower/deeper, while the total motion range stays comparable to the original
+55 -> 3.7 setup.
 
 ## Motion direction
 
-The renderer motion direction remains globally reversed:
+Device-motion direction is restored to normal:
 
 ```text
-camera.motionRange = -0.025
+camera.motionRange = 0.025
+```
+
+## Overscan
+
+The eight slices use progressively larger hidden margins:
+
+```text
+1.035, 1.048, 1.062, 1.082, 1.105, 1.135, 1.18, 1.24
 ```
 
 ## Texture quality
