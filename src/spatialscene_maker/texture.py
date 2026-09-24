@@ -8,6 +8,14 @@ from pathlib import Path
 from PIL import Image
 
 ASTC_MAGIC = b"\x13\xab\xa1\x5c"
+ASTC_QUALITY_PRESETS = {
+    "fastest",
+    "fast",
+    "medium",
+    "thorough",
+    "verythorough",
+    "exhaustive",
+}
 
 
 def _find_astcenc(explicit: str | None = None) -> str:
@@ -20,20 +28,49 @@ def _find_astcenc(explicit: str | None = None) -> str:
     raise RuntimeError("astcenc not found; install ARM astcenc or pass --astcenc")
 
 
-def encode_astc_4x4_srgb_pil(\n    image: Image.Image,\n    size: int = 2048,\n    executable: str | None = None,\n    *,\n    quality: str = "medium",\n) -> bytes:
+def encode_astc_4x4_srgb_pil(
+    image: Image.Image,
+    size: int = 2048,
+    executable: str | None = None,
+    *,
+    quality: str = "medium",
+) -> bytes:
+    if quality not in ASTC_QUALITY_PRESETS:
+        raise ValueError(f"unsupported astcenc quality: {quality}")
+
     exe = _find_astcenc(executable)
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         png = td / "texture.png"
         astc = td / "texture.astc"
-        image.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS).save(png)
-        subprocess.run([exe, "-cs", str(png), str(astc), "4x4", f"-{quality}"], check=True)
+
+        image.convert("RGBA").resize(
+            (size, size),
+            Image.Resampling.LANCZOS,
+        ).save(png)
+
+        subprocess.run(
+            [exe, "-cs", str(png), str(astc), "4x4", f"-{quality}"],
+            check=True,
+        )
         data = astc.read_bytes()
+
     if len(data) < 16 or data[:4] != ASTC_MAGIC:
         raise RuntimeError("astcenc output is not an ASTC file")
     return data[16:]
 
 
-def encode_astc_4x4_srgb(image_path: str, size: int = 2048, executable: str | None = None) -> bytes:
+def encode_astc_4x4_srgb(
+    image_path: str,
+    size: int = 2048,
+    executable: str | None = None,
+    *,
+    quality: str = "medium",
+) -> bytes:
     im = Image.open(image_path)
-    return encode_astc_4x4_srgb_pil(im, size=size, executable=executable)
+    return encode_astc_4x4_srgb_pil(
+        im,
+        size=size,
+        executable=executable,
+        quality=quality,
+    )
