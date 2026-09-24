@@ -191,8 +191,8 @@ def main() -> None:
                 "Eight full-screen texture slices; six geometrically similar "
                 "rounded openings plus the preserved terminal circular opening; "
                 "no highlight overlay; increased color/depth contrast; relative "
-                "height proportional to opening perimeter; reversed offset "
-                "direction based on current device test."
+                "height proportional to opening perimeter; normal offset "
+                "direction with strongly increased motion amplitude."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "windowPerimetersOuterToInner": WINDOW_PERIMETERS,
@@ -205,9 +205,9 @@ def main() -> None:
         }
     )
 
-    # Current device test still showed the offset in the wrong direction with
-    # +0.025, so flip the renderer motion response again.
-    project["camera"]["motionRange"] = -0.025
+    # Restore the positive offset direction and substantially increase the
+    # device-motion amplitude compared with the earlier 0.025 setting.
+    project["camera"]["motionRange"] = 0.05
     project["camera"]["overscan"] = 0.018
 
     (out / "project.json").write_text(
@@ -224,7 +224,7 @@ def main() -> None:
     print(f"window perimeters outer -> inner: {WINDOW_PERIMETERS}")
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
-    print("camera motion direction: flipped from current test (motionRange=-0.025)")
+    print("camera motion direction: positive; amplitude doubled (motionRange=0.05)")
     print(
         f"texture: {args.texture_size}x{args.texture_size}, "
         f"ASTC quality={args.astc_quality}"
