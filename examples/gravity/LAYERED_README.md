@@ -2,31 +2,48 @@
 
 This is the preferred demo for the recessed / gravity-wallpaper effect.
 
-It keeps the known-loadable V3 top-level structure (`main` + `backfill`), while the
-`main` layer is internally split into **nine independent texture-array slices** and
-nine independent quads.
+The current revision deliberately uses **six visible stages**:
 
-## Why this version exists
+- five rounded-rectangle rings;
+- one center disc.
 
-The earlier single-image depth mesh could expose the original source image around
-the viewport during tilt. The layered version avoids that failure mode:
+The previous nine-stage version was visually too busy.
 
-- eight rounded-rectangle rings + one center disc are separate RGBA images;
-- every layer image canvas is larger than the screen;
-- every quad uses a matching overscan factor, so artwork aligns at rest but has
-  hidden pixels around the viewport;
-- overscan grows toward the center (`1.04` -> `1.31`);
-- a separate dark-teal backfill uses `1.38x` overscan;
-- the outer rim is tuned to move very little, while inner stages move
-  progressively more.
+## Recessed compositing
 
-### Motion profile
+There are two separate requirements:
 
-The last point is intentionally an **illusion-oriented** mapping. Camera-space Z is
-used as a parallax control: a larger value moves less, and a smaller value moves
-more. Therefore the outer rim uses a large value and the center uses a much smaller
-one. This is chosen to match the requested "stationary rim / active recessed bottom"
-look rather than literal physical Z ordering.
+1. the upper / outer stages should move less;
+2. the lower / inner stages should visually sit *behind* the upper stages.
+
+The motion profile still uses larger camera-space depth for the outer rim and smaller
+values toward the center, because that gives the requested increasing motion:
+
+```text
+outer/top    55.0   -> smallest motion
+             28.0
+             15.0
+              8.5
+              5.2
+center/bottom 3.7   -> largest motion
+```
+
+That parallax mapping is intentionally non-physical. To stop it from reading as an
+outward stack, the mesh is now emitted in **inner-to-outer painter order**, so the
+outer rings are composited last and visually cover lower stages when motion causes
+overlap. The artwork also has a darkened inner lip on every ring to reinforce the
+cavity cue.
+
+## Overscan
+
+Every texture slice is generated on a canvas larger than the screen. Hidden border
+still increases toward the lower stages:
+
+```text
+1.035, 1.055, 1.085, 1.12, 1.17, 1.24
+```
+
+The full-screen backfill uses `1.32x` overscan.
 
 ## Build
 
@@ -43,28 +60,19 @@ python examples/gravity/build_layered_bundle.py `
   --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
 ```
 
-The output is:
+The asset generator removes stale `slice_*.png` files first, so switching from the
+old nine-layer layout to the new six-layer layout will not leave extra slices behind.
+
+## Current bundle structure
 
 ```text
 GravityLayered.spatialscene/
 ├── project.json
 └── assets/
     ├── main.ssmesh
-    ├── main.sstexture      # arrayLength = 9
+    ├── main.sstexture      # arrayLength = 6
     ├── backfill.ssmesh
     └── backfill.sstexture  # arrayLength = 1
 ```
 
 Import the `.spatialscene` folder itself into SpatialScene.
-
-## Tunable constants
-
-The visual/motion behavior is intentionally easy to tune:
-
-- `OVERSCANS` in `make_layered_assets.py`: hidden border per visible layer.
-- `BACKGROUND_OVERSCAN`: hidden border for the full-screen backfill.
-- `PARALLAX_DEPTHS` in `build_layered_bundle.py`: larger value = less motion.
-- `camera.motionRange` in the generated project: global motion amplitude.
-
-The defaults bias toward avoiding exposed edges first. Once loading and compositing
-are confirmed on-device, motion can be increased gradually.
