@@ -32,10 +32,28 @@ def _depth_from_gray(gray: int) -> float:
     return 1.0 / inv_depth
 
 
-PARALLAX_DEPTHS = [
+SOURCE_PARALLAX_DEPTHS = [
     _depth_from_gray(gray)
     for gray in DEPTH_GRAYS
 ]
+
+# Motion must decrease toward the outer/top layer and increase toward the
+# deepest layer. A larger camera-space depth produces less apparent motion, so
+# anchor the top layer at a very large depth (visually ~0 motion) and distribute
+# the remaining six layers geometrically down to the original deepest depth.
+TOP_ANCHOR_DEPTH = 1000.0
+DEEPEST_DEPTH = SOURCE_PARALLAX_DEPTHS[-1]
+
+if len(SOURCE_PARALLAX_DEPTHS) == 1:
+    PARALLAX_DEPTHS = [TOP_ANCHOR_DEPTH]
+else:
+    depth_ratio = (
+        DEEPEST_DEPTH / TOP_ANCHOR_DEPTH
+    ) ** (1.0 / (len(SOURCE_PARALLAX_DEPTHS) - 1))
+    PARALLAX_DEPTHS = [
+        TOP_ANCHOR_DEPTH * (depth_ratio ** i)
+        for i in range(len(SOURCE_PARALLAX_DEPTHS))
+    ]
 
 # The supplied reference bundle uses 8.4 for its V3 backfill plane.
 BACKFILL_PARALLAX_DEPTH = 8.4
@@ -180,10 +198,14 @@ def main() -> None:
                 "Seven full-screen cutout plates reconstructed from "
                 "make_assets.py: five nested rounded cut-outs, one circular "
                 "cut-out, and one full-screen bottom plate; exact make_assets "
-                "depth-map levels and reference camera direction."
+                "source depth-map levels and reference camera direction; "
+                "outermost layer is visually anchored while deeper layers "
+                "move progressively more."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "sourceDepthGraysOuterToInner": DEPTH_GRAYS,
+            "sourceParallaxDepthsOuterToInner": SOURCE_PARALLAX_DEPTHS,
+            "topAnchorDepth": TOP_ANCHOR_DEPTH,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
@@ -215,7 +237,8 @@ def main() -> None:
         f"{len(main_indices) // 3} triangles"
     )
     print(f"depth grays outer -> inner: {DEPTH_GRAYS}")
-    print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
+    print(f"source depths outer -> inner: {SOURCE_PARALLAX_DEPTHS}")
+    print(f"anchored parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
     print("camera: motionRange=+0.035, overscan=0.015")
     print("draw/compositing order: inner -> outer")
