@@ -53,7 +53,7 @@ python examples/gravity/build_layered_bundle.py `
   --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
 ```
 
-This version uses six full-screen texture slices. Five upper slices are full-screen cut-out plates and the deepest slice is also full-screen. Recess lighting is applied to the lower surface just inside the opening above it, and the layered builder defaults to 3072x3072 ASTC with thorough quality to avoid overscan-related softness. Upper stages move least while deeper stages move progressively more. See `examples/gravity/LAYERED_README.md`.
+This version uses six full-screen texture slices with identical outer geometry. All layers use the same 1.24x hidden overscan, so X/Y parallax differences come from camera-space depth only rather than per-layer quad scaling. The earlier soft highlight direction is restored: each plate brightens toward its own cut-out edge. See `examples/gravity/LAYERED_README.md`.
 
 ## V3 metadata compatibility
 
