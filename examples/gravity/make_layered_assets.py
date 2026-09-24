@@ -28,17 +28,12 @@ COLORS = [
     (154, 240, 214, 255),
 ]
 
-# Keep the original innermost rounded opening exactly:
-#   480 x 570, corner radius 82.
-#
-# Build all six rounded holes as uniform scales of that original inner shape.
-# This keeps width, height, corner radius and perimeter proportional while
-# reducing the size jump between the smallest rounded opening and the central
-# circular opening.
+# Shrink the innermost rounded opening further while preserving strict
+# geometric similarity across all six rounded openings.
 ROUNDED_HOLE_COUNT = 6
-INNER_ROUNDED_WIDTH = 480
-INNER_ROUNDED_HEIGHT = 570
-INNER_ROUNDED_RADIUS = 82
+INNER_ROUNDED_WIDTH = 300
+INNER_ROUNDED_HEIGHT = 356
+INNER_ROUNDED_RADIUS = 51
 OUTER_ROUNDED_WIDTH = 1020
 
 TOTAL_ROUNDED_SCALE = OUTER_ROUNDED_WIDTH / INNER_ROUNDED_WIDTH
@@ -65,8 +60,8 @@ ROUNDED_HOLES = [
     for scale in HOLE_SCALES
 ]
 
-# Preserve the original central circle size.
-CENTER = (CENTER_X, CENTER_Y, 165)
+# Shrink the central circle to roughly half of the previous radius.
+CENTER = (CENTER_X, CENTER_Y, 82)
 
 # Progressive hidden border for the eight slices. Upper layers retain more
 # effective texture resolution; deeper layers keep extra margin for parallax.
