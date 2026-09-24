@@ -53,7 +53,7 @@ python examples/gravity/build_layered_bundle.py `
   --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
 ```
 
-This version uses nine independent RGBA texture slices, progressively larger per-layer overscan, and a motion profile where the outer rim moves very little while deeper-looking inner layers move progressively more. See `examples/gravity/LAYERED_README.md`.
+This version uses six independent RGBA texture slices, progressively larger per-layer overscan and inner-to-outer recessed compositing, and a motion profile where the outer rim moves very little while deeper-looking inner layers move progressively more. See `examples/gravity/LAYERED_README.md`.
 
 ## V3 metadata compatibility
 
