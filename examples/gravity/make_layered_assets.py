@@ -7,35 +7,63 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
 
 W, H = 1290, 2796
+CENTER_X = W // 2
+CENTER_Y = 1465
 
-# Six visible stages:
-# five full-screen cut-out plates + one full-screen bottom image.
-#
-# Every slice has the same outer extent. The nested geometry is created only by
-# punching progressively smaller holes through the plates above it.
+# Eight visible stages:
+# six full-screen rounded-cutout plates,
+# one full-screen circular-cutout plate,
+# one full-screen bottom image.
 COLORS = [
     (18, 86, 75, 255),
-    (27, 112, 94, 255),
-    (39, 143, 117, 255),
-    (56, 175, 141, 255),
-    (82, 205, 169, 255),
+    (24, 101, 86, 255),
+    (31, 119, 99, 255),
+    (40, 139, 114, 255),
+    (52, 161, 130, 255),
+    (67, 184, 148, 255),
+    (91, 207, 171, 255),
     (137, 229, 204, 255),
 ]
 
-# Opening sizes restored from the earlier six-stage version.
-ROUNDED_HOLES = [
-    (135, 790, W - 135, 2140, 150),
-    (210, 900, W - 210, 2030, 130),
-    (300, 1030, W - 300, 1900, 108),
-    (405, 1180, W - 405, 1750, 82),
-]
-CENTER = (W // 2, 1465, 165)
+# Preserve the original outer rounded opening and the original innermost
+# rounded-opening width, but insert two extra rounded layers between them.
+# Every rounded opening is a uniform scale of the same base shape, so width,
+# height, corner radius and perimeter all scale by the same ratio.
+BASE_HOLE_WIDTH = 1020
+BASE_HOLE_HEIGHT = 1350
+BASE_HOLE_RADIUS = 150
+ROUNDED_HOLE_COUNT = 6
+INNER_ROUNDED_WIDTH = 480
+HOLE_SCALE_RATIO = (
+    INNER_ROUNDED_WIDTH / BASE_HOLE_WIDTH
+) ** (1.0 / (ROUNDED_HOLE_COUNT - 1))
 
-# Restore the earlier sharp asset layout. Upper layers keep only a small hidden
-# margin, while deeper layers get progressively more safety area for parallax.
-# This preserves substantially more effective texture resolution on the upper
-# visible layers than forcing every slice to the deepest-layer overscan.
-OVERSCANS = [1.035, 1.055, 1.085, 1.12, 1.17, 1.24]
+
+def _scaled_hole(scale: float) -> tuple[int, int, int, int, int]:
+    width = round(BASE_HOLE_WIDTH * scale)
+    height = round(BASE_HOLE_HEIGHT * scale)
+    radius = round(BASE_HOLE_RADIUS * scale)
+
+    x0 = round(CENTER_X - width / 2)
+    y0 = round(CENTER_Y - height / 2)
+    return x0, y0, x0 + width, y0 + height, radius
+
+
+HOLE_SCALES = [
+    HOLE_SCALE_RATIO**i
+    for i in range(ROUNDED_HOLE_COUNT)
+]
+ROUNDED_HOLES = [
+    _scaled_hole(scale)
+    for scale in HOLE_SCALES
+]
+
+# Keep the terminal circular opening from the earlier design.
+CENTER = (CENTER_X, CENTER_Y, 165)
+
+# Progressive hidden border for the eight slices. Upper layers keep little
+# overscan for sharpness; deeper layers get more room for parallax.
+OVERSCANS = [1.035, 1.048, 1.062, 1.082, 1.105, 1.135, 1.18, 1.24]
 BACKGROUND_OVERSCAN = 1.32
 
 
@@ -64,7 +92,12 @@ def _circle_mask(size, ox: int, oy: int, circle) -> Image.Image:
     mask = Image.new("L", size, 0)
     d = ImageDraw.Draw(mask)
     d.ellipse(
-        (ox + cx - radius, oy + cy - radius, ox + cx + radius, oy + cy + radius),
+        (
+            ox + cx - radius,
+            oy + cy - radius,
+            ox + cx + radius,
+            oy + cy + radius,
+        ),
         fill=255,
     )
     return mask
@@ -95,7 +128,6 @@ def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
     return canvas
 
 
-
 def plate_slice(
     hole_shape,
     color,
@@ -116,8 +148,6 @@ def bottom_surface(
     color,
     scale: float,
 ) -> Image.Image:
-    # The deepest stage is also a full-screen image. It remains fully opaque;
-    # the circular appearance comes only from the cut-out in the layer above.
     canvas, _, _ = _expanded_canvas(scale)
     return Image.new("RGBA", canvas.size, color)
 
@@ -130,7 +160,10 @@ def build(out_dir: Path) -> None:
 
     make_background().save(out_dir / "background.png")
 
-    rounded_shapes = [("rounded",) + hole for hole in ROUNDED_HOLES]
+    rounded_shapes = [
+        ("rounded",) + hole
+        for hole in ROUNDED_HOLES
+    ]
     circle_shape = ("circle",) + CENTER
 
     for i, shape in enumerate(rounded_shapes):
@@ -140,21 +173,28 @@ def build(out_dir: Path) -> None:
             OVERSCANS[i],
         ).save(out_dir / f"slice_{i:02d}.png")
 
+    circle_index = len(rounded_shapes)
     plate_slice(
         circle_shape,
-        COLORS[len(rounded_shapes)],
-        OVERSCANS[len(rounded_shapes)],
-    ).save(out_dir / f"slice_{len(rounded_shapes):02d}.png")
+        COLORS[circle_index],
+        OVERSCANS[circle_index],
+    ).save(out_dir / f"slice_{circle_index:02d}.png")
 
+    bottom_index = circle_index + 1
     bottom_surface(
-        COLORS[-1],
-        OVERSCANS[-1],
-    ).save(out_dir / f"slice_{len(rounded_shapes) + 1:02d}.png")
+        COLORS[bottom_index],
+        OVERSCANS[bottom_index],
+    ).save(out_dir / f"slice_{bottom_index:02d}.png")
 
     print(
-        f"Generated {len(rounded_shapes) + 2} full-screen slices + background "
-        f"in {out_dir}; overscans={OVERSCANS}"
+        f"Generated {bottom_index + 1} full-screen slices + background "
+        f"in {out_dir}"
     )
+    print(f"rounded-hole scale ratio: {HOLE_SCALE_RATIO}")
+    print(f"rounded-hole scales: {HOLE_SCALES}")
+    print(f"rounded holes: {ROUNDED_HOLES}")
+    print(f"circle: {CENTER}")
+    print(f"overscans: {OVERSCANS}")
 
 
 def main() -> None:
