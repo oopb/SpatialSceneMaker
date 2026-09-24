@@ -21,19 +21,12 @@ from make_layered_assets import (
     W,
 )
 
-# Restore the original useful parallax range while distributing the two added
-# layers according to the visible-window perimeter.
-OUTER_DEPTH = 55.0
+# Increase vertical separation between stages while keeping the deepest stage
+# at the original near depth. Height above the bottom is strictly proportional
+# to the perimeter of the opening for that stage.
+OUTER_DEPTH = 75.0
 INNER_DEPTH = 3.7
 
-# The camera-space height above the deepest layer is proportional to the
-# perimeter of the window through which the next stage is viewed.
-#
-# Stage windows, outer -> inner:
-#   full screen,
-#   six geometrically similar rounded openings,
-#   terminal circular opening.
-SCREEN_PERIMETER = 2.0 * (W + H)
 ROUNDED_PERIMETERS = [
     2.0 * ((x1 - x0) + (y1 - y0) - 4.0 * radius)
     + 2.0 * math.pi * radius
@@ -41,24 +34,24 @@ ROUNDED_PERIMETERS = [
 ]
 CIRCLE_PERIMETER = 2.0 * math.pi * CENTER[2]
 
+# Eight stages:
+# six rounded-opening plates, one circular-opening plate, one bottom surface.
+# The bottom surface has zero opening perimeter / zero relative height.
 WINDOW_PERIMETERS = [
-    SCREEN_PERIMETER,
     *ROUNDED_PERIMETERS,
     CIRCLE_PERIMETER,
+    0.0,
 ]
 
-PERIMETER_MIN = WINDOW_PERIMETERS[-1]
-PERIMETER_MAX = WINDOW_PERIMETERS[0]
+HEIGHT_PER_PERIMETER = (
+    OUTER_DEPTH - INNER_DEPTH
+) / WINDOW_PERIMETERS[0]
 
 PARALLAX_DEPTHS = [
-    INNER_DEPTH
-    + (perimeter - PERIMETER_MIN)
-    * (OUTER_DEPTH - INNER_DEPTH)
-    / (PERIMETER_MAX - PERIMETER_MIN)
+    INNER_DEPTH + perimeter * HEIGHT_PER_PERIMETER
     for perimeter in WINDOW_PERIMETERS
 ]
 
-# This remains essentially the old 3.15 backfill depth.
 BACKFILL_PARALLAX_DEPTH = INNER_DEPTH * 0.85
 
 
@@ -196,9 +189,10 @@ def main() -> None:
             "name": "SpatialSceneMaker recessed gravity",
             "strategy": (
                 "Eight full-screen texture slices; six geometrically similar "
-                "rounded openings plus a terminal circular opening; no "
-                "highlight overlay; relative layer height proportional to "
-                "window perimeter; normal device-motion direction."
+                "rounded openings plus the preserved terminal circular opening; "
+                "no highlight overlay; increased color/depth contrast; relative "
+                "height proportional to opening perimeter; reversed offset "
+                "direction based on current device test."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "windowPerimetersOuterToInner": WINDOW_PERIMETERS,
@@ -211,8 +205,9 @@ def main() -> None:
         }
     )
 
-    # Restore the original direction and magnitude.
-    project["camera"]["motionRange"] = 0.025
+    # Current device test still showed the offset in the wrong direction with
+    # +0.025, so flip the renderer motion response again.
+    project["camera"]["motionRange"] = -0.025
     project["camera"]["overscan"] = 0.018
 
     (out / "project.json").write_text(
@@ -229,7 +224,7 @@ def main() -> None:
     print(f"window perimeters outer -> inner: {WINDOW_PERIMETERS}")
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
-    print("camera motion direction: normal (motionRange=0.025)")
+    print("camera motion direction: flipped from current test (motionRange=-0.025)")
     print(
         f"texture: {args.texture_size}x{args.texture_size}, "
         f"ASTC quality={args.astc_quality}"
