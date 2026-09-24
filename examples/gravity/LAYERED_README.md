@@ -86,3 +86,29 @@ GravityLayered.spatialscene/
     ├── backfill.ssmesh
     └── backfill.sstexture  # arrayLength = 1
 ```
+
+
+## Sharpness fix
+
+The previous layered build used a fixed `2048x2048` texture for every oversized
+layer canvas. With overscan, the visible viewport used substantially fewer than
+2048 vertical texels (the deepest 1.24x layer used only about 1650), which made
+the result visibly soft after projection back to a 2796-high screen.
+
+The layered builder now defaults to:
+
+```text
+texture size = 3072x3072
+ASTC quality = thorough
+```
+
+You can override these with `--texture-size` and `--astc-quality`.
+
+## Highlight direction fix
+
+The earlier implementation brightened the **upper plate around its own hole**.
+That reads like a raised bevel and can make the recess look convex.
+
+The current implementation instead brightens the **lower surface just inside the
+opening above it**. The highlight fades inward from the parent opening edge and
+contains no dark shadow. This is the intended recessed-lighting direction.
