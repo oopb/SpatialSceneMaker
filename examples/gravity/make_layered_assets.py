@@ -32,11 +32,11 @@ ROUNDED_HOLES = [
 CENTER = (W // 2, 1465, 165)
 
 # IMPORTANT:
-# All visual layers now use the SAME overscan. Previously this grew from
-# 1.035 -> 1.24, which also changed the quad geometry size per layer and mixed
-# geometry scaling into the parallax response. With one common outer geometry,
-# layer-to-layer motion is controlled only by camera-space depth.
-LAYER_OVERSCAN = 1.24
+# All visual layers use the SAME overscan. Keep this close to the minimum
+# needed for tilt coverage so the visible viewport retains more texture detail.
+# Horizontal parallax tuning is done in the mesh builder, not by changing these
+# per-layer texture canvases.
+LAYER_OVERSCAN = 1.16
 OVERSCANS = [LAYER_OVERSCAN] * len(COLORS)
 BACKGROUND_OVERSCAN = 1.32
 
