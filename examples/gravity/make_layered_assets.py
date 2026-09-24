@@ -122,33 +122,42 @@ def plate_slice(hole_shape, color, scale: float) -> Image.Image:
     return Image.alpha_composite(layer, face)
 
 
-def center_disc(color, scale: float) -> Image.Image:
+def bottom_surface(color, scale: float) -> Image.Image:
+    # The visually bottom-most stage is a full-screen image, not a transparent
+    # circular sprite. The circular shape is created exclusively by the hole in
+    # the plate above it. This guarantees full coverage during larger parallax.
     canvas, ox, oy = _expanded_canvas(scale)
-    alpha = _circle_mask(canvas.size, ox, oy, CENTER)
-
     layer = Image.new("RGBA", canvas.size, color)
-    layer.putalpha(alpha)
 
-    # Soft center lift, matching the bright-lip language without introducing a
-    # directional shadow.
-    cx, cy, radius = CENTER
+    # Gentle radial brightening centered behind the circular opening. The
+    # highlight extends well beyond the visible circle so motion remains smooth.
+    cx, cy, _ = CENTER
     cx += ox
     cy += oy
-    highlight = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    hd = ImageDraw.Draw(highlight)
-    hd.ellipse(
-        (cx - radius + 26, cy - radius + 26, cx + radius - 26, cy + radius - 26),
-        fill=(255, 255, 255, 20),
+    glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    glow_radius = 300
+    gd.ellipse(
+        (
+            cx - glow_radius,
+            cy - glow_radius,
+            cx + glow_radius,
+            cy + glow_radius,
+        ),
+        fill=(255, 255, 255, 22),
     )
-    highlight = highlight.filter(ImageFilter.GaussianBlur(30))
-    highlight.putalpha(
-        Image.composite(
-            highlight.getchannel("A"),
-            Image.new("L", canvas.size, 0),
-            alpha,
-        )
+    glow = glow.filter(ImageFilter.GaussianBlur(90))
+
+    # Subtle vertical lift keeps the full-screen bottom image from looking flat.
+    face = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    fd = ImageDraw.Draw(face)
+    fd.rectangle(
+        (0, max(0, cy - 520), canvas.width, min(canvas.height, cy + 520)),
+        fill=(255, 255, 255, 5),
     )
-    return Image.alpha_composite(layer, highlight)
+    face = face.filter(ImageFilter.GaussianBlur(180))
+
+    return Image.alpha_composite(Image.alpha_composite(layer, glow), face)
 
 
 def build(out_dir: Path) -> None:
