@@ -181,7 +181,7 @@ def build(out_dir: Path) -> None:
         OVERSCANS[len(HOLES)],
     ).save(out_dir / f"slice_{len(HOLES):02d}.png")
 
-    center_disc(COLORS[-1], OVERSCANS[-1]).save(
+    bottom_surface(COLORS[-1], OVERSCANS[-1]).save(
         out_dir / f"slice_{len(HOLES) + 1:02d}.png"
     )
     print(f"Generated {len(HOLES) + 2} slices + background in {out_dir}")
