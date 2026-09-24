@@ -53,7 +53,7 @@ python examples/gravity/build_layered_bundle.py `
   --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
 ```
 
-This version uses six large cut-out plate slices, smaller openings with thicker visible borders, soft bright inner lips (no dark shadows), progressively larger overscan, and a motion profile where the uppermost stage moves least while deeper stages move progressively more. See `examples/gravity/LAYERED_README.md`.
+This version uses six full-screen texture slices. Five upper slices are full-screen plates with restored cut-out sizes and a natural two-scale brightening toward each opening; the deepest slice is also a full-screen image. Upper stages move least while deeper stages move progressively more. See `examples/gravity/LAYERED_README.md`.
 
 ## V3 metadata compatibility
 
