@@ -84,21 +84,19 @@ def main() -> None:
 
     aspect = W / H
 
-    # Restore the original layered implementation's outer -> inner mesh order.
-    # These ring/disc slices do not need the later inner -> outer full-plate
-    # painter workaround.
+    # Every slice is a full-screen plate, so build deepest -> outermost.
+    # This lets the outer plates cover deeper plates everywhere except through
+    # their cut-outs.
     meshes = []
-    for idx, (depth, overscan) in enumerate(
-        zip(PARALLAX_DEPTHS, OVERSCANS)
-    ):
+    for idx in reversed(range(len(PARALLAX_DEPTHS))):
         meshes.append(
             build_full_frame_quad(
-                depth,
+                PARALLAX_DEPTHS[idx],
                 aspect,
                 args.fov,
                 texture_size=args.texture_size,
                 texture_slice=idx,
-                overscan=overscan,
+                overscan=OVERSCANS[idx],
             )
         )
     main_vertices, main_indices = merge_meshes(meshes)
@@ -179,17 +177,17 @@ def main() -> None:
         {
             "name": "SpatialSceneMaker make_assets layered reference",
             "strategy": (
-                "Seven transparent slices reconstructed directly from "
-                "make_assets.py: background, five rounded regions, center "
-                "circle; exact make_assets depth-map levels and reference "
-                "camera direction."
+                "Seven full-screen cutout plates reconstructed from "
+                "make_assets.py: five nested rounded cut-outs, one circular "
+                "cut-out, and one full-screen bottom plate; exact make_assets "
+                "depth-map levels and reference camera direction."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "sourceDepthGraysOuterToInner": DEPTH_GRAYS,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
-            "compositingOrder": "outer-to-inner",
+            "compositingOrder": "inner-to-outer",
             "textureSize": args.texture_size,
             "astcQuality": args.astc_quality,
         }
@@ -220,7 +218,7 @@ def main() -> None:
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
     print("camera: motionRange=+0.035, overscan=0.015")
-    print("draw/compositing order: outer -> inner")
+    print("draw/compositing order: inner -> outer")
 
 
 if __name__ == "__main__":
