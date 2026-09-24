@@ -14,23 +14,19 @@ from spatialscene_maker.texture import encode_astc_4x4_srgb_pil
 
 from make_layered_assets import BACKGROUND_OVERSCAN, OVERSCANS
 
-# Illusion-oriented parallax profile:
-# large camera-space depth = smaller apparent motion;
-# small camera-space depth = larger apparent motion.
-# Therefore the outer rim is nearly stationary and the visually deeper center
-# moves progressively more.
+# Requested motion profile:
+# top/outer stage moves the least; each lower/inner stage moves more.
+# Larger camera-space depth produces less apparent translation, so values
+# decrease monotonically toward the center.
 PARALLAX_DEPTHS = [
-    40.0,
-    25.0,
-    17.0,
-    12.0,
-    8.8,
-    6.7,
-    5.3,
-    4.35,
-    3.65,
+    55.0,
+    28.0,
+    15.0,
+    8.5,
+    5.2,
+    3.7,
 ]
-BACKFILL_PARALLAX_DEPTH = 3.1
+BACKFILL_PARALLAX_DEPTH = 3.15
 
 
 def main() -> None:
@@ -47,7 +43,8 @@ def main() -> None:
     slices = sorted(asset_dir.glob("slice_*.png"))
     if len(slices) != len(PARALLAX_DEPTHS):
         raise SystemExit(
-            f"Expected {len(PARALLAX_DEPTHS)} slices, found {len(slices)} in {asset_dir}"
+            f"Expected {len(PARALLAX_DEPTHS)} slices, found {len(slices)} in {asset_dir}. "
+            "Run make_layered_assets.py again so stale slices are removed."
         )
 
     bg_path = asset_dir / "background.png"
@@ -57,16 +54,21 @@ def main() -> None:
     screen_width, screen_height = 1290, 2796
     aspect = screen_width / screen_height
 
+    # IMPORTANT: build painter order from the visually deepest stage outward.
+    # The outer/top rings are appended last. If the renderer's transparent pass
+    # honors index order (as observed in the current app), this makes inner
+    # stages disappear behind the rim when they overlap during tilt, reading as
+    # a cavity rather than as a stack protruding toward the viewer.
     meshes = []
-    for idx, (depth, overscan) in enumerate(zip(PARALLAX_DEPTHS, OVERSCANS)):
+    for idx in reversed(range(len(PARALLAX_DEPTHS))):
         meshes.append(
             build_full_frame_quad(
-                depth,
+                PARALLAX_DEPTHS[idx],
                 aspect,
                 args.fov,
                 texture_size=args.texture_size,
                 texture_slice=idx,
-                overscan=overscan,
+                overscan=OVERSCANS[idx],
             )
         )
     main_vertices, main_indices = merge_meshes(meshes)
@@ -127,19 +129,23 @@ def main() -> None:
     )
     project["generator"].update(
         {
-            "name": "SpatialSceneMaker layered gravity",
+            "name": "SpatialSceneMaker recessed gravity",
             "strategy": (
-                "Nine transparent texture slices with progressively larger "
-                "overscan and recessed-motion parallax profile."
+                "Six transparent texture slices; inner-to-outer painter order; "
+                "upper stages move less and lower stages move more."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
-            "parallaxDepths": PARALLAX_DEPTHS,
-            "layerOverscans": OVERSCANS,
+            "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
+            "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
+            "compositingOrder": "inner-to-outer",
         }
     )
-    project["camera"]["motionRange"] = 0.030
-    project["camera"]["overscan"] = 0.020
+
+    # Keep global motion conservative: the per-stage depth ratio already creates
+    # a large differential between the outer rim and the center.
+    project["camera"]["motionRange"] = 0.025
+    project["camera"]["overscan"] = 0.018
 
     (out / "project.json").write_text(
         json.dumps(project, indent=2, ensure_ascii=False),
@@ -152,9 +158,9 @@ def main() -> None:
         f"main mesh: {len(main_vertices)} vertices / "
         f"{len(main_indices) // 3} triangles"
     )
-    print(f"parallax depths (outer -> inner): {PARALLAX_DEPTHS}")
-    print(f"overscans (outer -> inner): {OVERSCANS}")
-    print(f"backfill overscan: {BACKGROUND_OVERSCAN}")
+    print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
+    print(f"overscans outer -> inner: {OVERSCANS}")
+    print("draw/compositing order: inner -> outer")
 
 
 if __name__ == "__main__":
