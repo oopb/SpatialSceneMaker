@@ -20,21 +20,20 @@ def _find_astcenc(explicit: str | None = None) -> str:
     raise RuntimeError("astcenc not found; install ARM astcenc or pass --astcenc")
 
 
-def encode_astc_4x4_srgb(image_path: str, size: int = 2048, executable: str | None = None) -> bytes:
+def encode_astc_4x4_srgb_pil(image: Image.Image, size: int = 2048, executable: str | None = None) -> bytes:
     exe = _find_astcenc(executable)
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         png = td / "texture.png"
         astc = td / "texture.astc"
-
-        # The mesh spans the full 0..1 UV range. For a single-slice PoC the
-        # source therefore needs to fill the square texture; the portrait
-        # aspect is restored by the geometry's aspect ratio at render time.
-        im = Image.open(image_path).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
-        im.save(png)
-
+        image.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS).save(png)
         subprocess.run([exe, "-cs", str(png), str(astc), "4x4", "-medium"], check=True)
         data = astc.read_bytes()
     if len(data) < 16 or data[:4] != ASTC_MAGIC:
         raise RuntimeError("astcenc output is not an ASTC file")
     return data[16:]
+
+
+def encode_astc_4x4_srgb(image_path: str, size: int = 2048, executable: str | None = None) -> bytes:
+    im = Image.open(image_path)
+    return encode_astc_4x4_srgb_pil(im, size=size, executable=executable)
