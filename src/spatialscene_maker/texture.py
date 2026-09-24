@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import shutil
-import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -27,16 +26,15 @@ def encode_astc_4x4_srgb(image_path: str, size: int = 2048, executable: str | No
         td = Path(td)
         png = td / "texture.png"
         astc = td / "texture.astc"
-        im = Image.open(image_path).convert("RGBA")
-        im.thumbnail((size, size), Image.Resampling.LANCZOS)
-        canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        x = (size - im.width) // 2
-        y = (size - im.height) // 2
-        canvas.alpha_composite(im, (x, y))
-        canvas.save(png)
+
+        # The mesh spans the full 0..1 UV range. For a single-slice PoC the
+        # source therefore needs to fill the square texture; the portrait
+        # aspect is restored by the geometry's aspect ratio at render time.
+        im = Image.open(image_path).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+        im.save(png)
+
         subprocess.run([exe, "-cs", str(png), str(astc), "4x4", "-medium"], check=True)
         data = astc.read_bytes()
     if len(data) < 16 or data[:4] != ASTC_MAGIC:
         raise RuntimeError("astcenc output is not an ASTC file")
-    # Standard .astc has a 16-byte header. SST3 stores only compressed blocks.
     return data[16:]
