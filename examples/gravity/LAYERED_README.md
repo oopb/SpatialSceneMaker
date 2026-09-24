@@ -2,29 +2,36 @@
 
 This is the preferred demo for the recessed / gravity-wallpaper effect.
 
-The current revision uses **six visible stages** built as **large plates with cut-out openings**:
+The current revision uses **six full-screen texture slices**:
 
-- four upper plates with progressively smaller rounded-rectangle openings;
-- one lower plate with a circular opening;
-- one full-screen bottom image revealed through the final circular opening.
+- four full-screen plates with rounded-rectangle cut-outs;
+- one full-screen plate with a circular cut-out;
+- one full-screen bottom image revealed through that final circular opening.
 
-All five plates cover the same large rounded-rectangle region. They are not floating squares or rings: the next stage is only visible through the opening carved into the plate above it.
+Every layer now has the **same outer extent: the whole screen**. The apparent nested shapes come only from the holes cut through the layers above it.
 
-## Thicker edges / smaller openings
+## Restored opening sizes
 
-The openings were reduced again so the visible plate borders are thicker:
+The rounded openings use the earlier six-stage proportions again:
 
 ```text
-top opening    x=190..1100, y=820..2110
-next           x=285..1005, y=940..1990
-next           x=380..910,  y=1070..1860
-next           x=470..820,  y=1200..1730
-final opening  circle radius=128
+opening 1   x=135..1155, y=790..2140, radius=150
+opening 2   x=210..1080, y=900..2030, radius=130
+opening 3   x=300..990,  y=1030..1900, radius=108
+opening 4   x=405..885,  y=1180..1750, radius=82
+final hole  circle radius=165
 ```
 
-## Recess cue
+## Soft recessed highlight
 
-There are **no dark inner shadows** in this version. Each opening gets only a soft, low-opacity bright lip. The bright lip plus inner-to-outer compositing is used to make the geometry read as a smooth cavity.
+There are **no dark inner shadows**.
+
+Each cut-out gets a two-scale soft highlight:
+
+- a broad low-intensity lift begins farther from the opening;
+- a narrower highlight increases smoothly toward the cut-out edge.
+
+This creates a natural brightness ramp into the hole instead of a hard ring.
 
 ## Motion profile
 
@@ -39,15 +46,17 @@ outer/top     55.0   -> smallest motion
 center/bottom  3.7   -> largest motion
 ```
 
-The mesh is emitted in **inner-to-outer painter order**, so upper plates cover lower stages whenever motion causes overlap. The bottom-most texture is fully opaque across its entire oversized canvas; the circular appearance comes only from the hole in the plate above it.
+The mesh is emitted in **inner-to-outer painter order**, so upper full-screen plates cover lower stages whenever motion causes overlap.
 
 ## Overscan
+
+Each logical layer is screen-sized, but its texture canvas includes hidden overscan so motion never reveals an edge:
 
 ```text
 1.035, 1.055, 1.085, 1.12, 1.17, 1.24
 ```
 
-The full-screen backfill uses `1.32x` overscan.
+The backfill uses `1.32x` overscan.
 
 ## Build
 
