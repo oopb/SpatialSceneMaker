@@ -2,7 +2,7 @@
 
 Experimental Python generator for SpatialScene V3 bundles from an RGB image and a user-supplied depth map.
 
-> **Status:** reverse-engineering / proof of concept. The SSM3 mesh layout and SST3 container header are derived from observed SpatialSceneWallpaper samples. Output still needs renderer/device validation and this project is not an Apple-supported file-format implementation.
+> **Status:** reverse-engineering / proof of concept. The SSM3 mesh layout and SST3 container header are derived from observed SpatialSceneWallpaper samples. This is not an Apple-supported file-format implementation.
 
 ## What it does
 
@@ -11,8 +11,8 @@ Experimental Python generator for SpatialScene V3 bundles from an RGB image and 
 - Writes the reverse-engineered `SSM3` mesh container.
 - Encodes a 2048x2048 ASTC 4x4 sRGB texture through ARM `astcenc`.
 - Wraps raw ASTC blocks in the reverse-engineered `SST3` texture container.
-- Emits a `.spatialscene` directory with `project.json` and main/backfill assets.
-- Uses a conservative flat far-plane backfill for the first PoC.
+- Emits a V3-style `.spatialscene` directory with camera, viewport, layer frame/FOV and model transform metadata.
+- Expands the backfill projection by 1.16x, matching the framing relationship observed in a known V3 sample.
 
 ## Install
 
@@ -30,11 +30,21 @@ spatialscene-maker image.png depth.png -o ManualDepthTest.spatialscene --near 1 
 
 Depth convention: white = near, black = far by default. Use `--invert-depth` to reverse it.
 
-For a deliberately coarse first test:
+For hard-edged layer masks:
 
 ```bash
-spatialscene-maker image.png depth.png -o Test.spatialscene --grid-width 65 --near 1 --far 10
+spatialscene-maker image.png depth.png -o Test.spatialscene --grid-width 65 --depth-mode discrete --near 1 --far 10
 ```
+
+The default grid width is 65 to keep the mesh near the complexity of known working bundles rather than generating hundreds of thousands of triangles.
+
+## V3 metadata compatibility
+
+A minimal generated project contains the field families observed in known-loadable schema-v3 bundles:
+
+- `camera.motionRange` and `camera.overscan`
+- `id`, `renderer`, `schemaVersion`, and `viewport`
+- per-layer `aspectRatio`, `depthRange`, `frame`, `mesh`, `modelToWorldColumnMajor`, `role`, `texture`, and `verticalFOV`
 
 ## Reverse-engineered formats
 
