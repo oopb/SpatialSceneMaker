@@ -85,6 +85,50 @@ So the outer layer receives the former deepest layer's motion magnitude, and the
 deepest layer receives the former outer layer's motion magnitude, with all
 intermediate relationships kept proportional.
 
+## Linearized motion amplitudes
+
+Starting from the current reversed depth ordering, the builder now applies an
+affine transform to the actual parallax amplitudes `1/depth`:
+
+```text
+0
+1/6
+2/6
+3/6
+4/6
+5/6
+1
+```
+
+This makes the top layer visually stationary while preserving a strictly linear
+relationship between all deeper layers. The corresponding render depths are:
+
+```text
+1000000
+6
+3
+2
+1.5
+1.2
+1
+```
+
+The large first depth is the finite representation of the zero-motion top
+layer.
+
+## X-only direction reversal
+
+Only horizontal motion is reversed. The main project layer uses both:
+
+```text
+modelToWorld X scale = -1
+aspectRatio          = negative
+```
+
+These two X mirrors cancel in the resting composition, while the X camera-motion
+term changes sign. Y geometry/projection is untouched, so vertical motion keeps
+its current direction.
+
 ## Camera
 
 The normal reference camera settings remain:
