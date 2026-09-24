@@ -14,45 +14,31 @@ from spatialscene_maker.texture import encode_astc_4x4_srgb_pil
 
 from make_layered_assets import (
     BACKGROUND_OVERSCAN,
-    CENTER,
+    DEPTH_GRAYS,
     H,
     OVERSCANS,
-    ROUNDED_HOLES,
     W,
 )
 
-# Increase vertical separation between stages while keeping the deepest stage
-# at the original near depth. Height above the bottom is strictly proportional
-# to the perimeter of the opening for that stage.
-OUTER_DEPTH = 75.0
-INNER_DEPTH = 3.7
+# Match the reference make_assets.py / GravityWallpaper.spatialscene depth model:
+# --near 1 --far 8 with the exact discrete grayscale levels.
+NEAR_DEPTH = 1.0
+FAR_DEPTH = 8.0
 
-ROUNDED_PERIMETERS = [
-    2.0 * ((x1 - x0) + (y1 - y0) - 4.0 * radius)
-    + 2.0 * math.pi * radius
-    for x0, y0, x1, y1, radius in ROUNDED_HOLES
-]
-CIRCLE_PERIMETER = 2.0 * math.pi * CENTER[2]
 
-# Eight stages:
-# six rounded-opening plates, one circular-opening plate, one bottom surface.
-# The bottom surface has zero opening perimeter / zero relative height.
-WINDOW_PERIMETERS = [
-    *ROUNDED_PERIMETERS,
-    CIRCLE_PERIMETER,
-    0.0,
-]
+def _depth_from_gray(gray: int) -> float:
+    norm = gray / 255.0
+    inv_depth = norm / NEAR_DEPTH + (1.0 - norm) / FAR_DEPTH
+    return 1.0 / inv_depth
 
-HEIGHT_PER_PERIMETER = (
-    OUTER_DEPTH - INNER_DEPTH
-) / WINDOW_PERIMETERS[0]
 
 PARALLAX_DEPTHS = [
-    INNER_DEPTH + perimeter * HEIGHT_PER_PERIMETER
-    for perimeter in WINDOW_PERIMETERS
+    _depth_from_gray(gray)
+    for gray in DEPTH_GRAYS
 ]
 
-BACKFILL_PARALLAX_DEPTH = INNER_DEPTH * 0.85
+# The supplied reference bundle uses 8.4 for its V3 backfill plane.
+BACKFILL_PARALLAX_DEPTH = 8.4
 
 
 def main() -> None:
@@ -98,16 +84,21 @@ def main() -> None:
 
     aspect = W / H
 
+    # Restore the original layered implementation's outer -> inner mesh order.
+    # These ring/disc slices do not need the later inner -> outer full-plate
+    # painter workaround.
     meshes = []
-    for idx in reversed(range(len(PARALLAX_DEPTHS))):
+    for idx, (depth, overscan) in enumerate(
+        zip(PARALLAX_DEPTHS, OVERSCANS)
+    ):
         meshes.append(
             build_full_frame_quad(
-                PARALLAX_DEPTHS[idx],
+                depth,
                 aspect,
                 args.fov,
                 texture_size=args.texture_size,
                 texture_slice=idx,
-                overscan=OVERSCANS[idx],
+                overscan=overscan,
             )
         )
     main_vertices, main_indices = merge_meshes(meshes)
@@ -186,29 +177,33 @@ def main() -> None:
     )
     project["generator"].update(
         {
-            "name": "SpatialSceneMaker recessed gravity",
+            "name": "SpatialSceneMaker make_assets layered reference",
             "strategy": (
-                "Eight full-screen texture slices; six geometrically similar "
-                "rounded openings plus the preserved terminal circular opening; "
-                "no highlight overlay; increased color/depth contrast; relative "
-                "height proportional to opening perimeter; normal offset "
-                "direction with strongly increased motion amplitude."
+                "Seven transparent slices reconstructed directly from "
+                "make_assets.py: background, five rounded regions, center "
+                "circle; exact make_assets depth-map levels and reference "
+                "camera direction."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
-            "windowPerimetersOuterToInner": WINDOW_PERIMETERS,
+            "sourceDepthGraysOuterToInner": DEPTH_GRAYS,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
-            "compositingOrder": "inner-to-outer",
+            "compositingOrder": "outer-to-inner",
             "textureSize": args.texture_size,
             "astcQuality": args.astc_quality,
         }
     )
 
-    # Restore the positive offset direction and substantially increase the
-    # device-motion amplitude compared with the earlier 0.025 setting.
-    project["camera"]["motionRange"] = 0.05
-    project["camera"]["overscan"] = 0.018
+    # Commit-history check:
+    # - ef4ee9a: +0.030 (first layered implementation)
+    # - e021f35..58da483: +0.025 (stable six-layer period)
+    # - 8883b84: first negative motionRange experiment
+    #
+    # The supplied reference GravityWallpaper.spatialscene itself uses +0.035,
+    # so restore that exact positive camera direction and amplitude.
+    project["camera"]["motionRange"] = 0.035
+    project["camera"]["overscan"] = 0.015
 
     (out / "project.json").write_text(
         json.dumps(project, indent=2, ensure_ascii=False),
@@ -221,15 +216,11 @@ def main() -> None:
         f"main mesh: {len(main_vertices)} vertices / "
         f"{len(main_indices) // 3} triangles"
     )
-    print(f"window perimeters outer -> inner: {WINDOW_PERIMETERS}")
+    print(f"depth grays outer -> inner: {DEPTH_GRAYS}")
     print(f"parallax depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
-    print("camera motion direction: positive; amplitude doubled (motionRange=0.05)")
-    print(
-        f"texture: {args.texture_size}x{args.texture_size}, "
-        f"ASTC quality={args.astc_quality}"
-    )
-    print("draw/compositing order: inner -> outer")
+    print("camera: motionRange=+0.035, overscan=0.015")
+    print("draw/compositing order: outer -> inner")
 
 
 if __name__ == "__main__":
