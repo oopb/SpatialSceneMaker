@@ -53,7 +53,7 @@ python examples/gravity/build_layered_bundle.py `
   --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
 ```
 
-This version uses six full-screen texture slices with identical outer geometry. All layers use the same 1.24x hidden overscan, so X/Y parallax differences come from camera-space depth only rather than per-layer quad scaling. The earlier soft highlight direction is restored: each plate brightens toward its own cut-out edge. See `examples/gravity/LAYERED_README.md`.
+This version follows `examples/gravity/make_assets.py` directly: seven main slices reconstruct the outer background, five rounded depth regions, and center circle using the same proportions and discrete depth values as the reference. Camera motion is restored to the reference-positive `motionRange=0.035` with `overscan=0.015`. See `examples/gravity/LAYERED_README.md`.
 
 ## V3 metadata compatibility
 
