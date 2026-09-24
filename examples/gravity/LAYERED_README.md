@@ -51,29 +51,39 @@ demo gives the seven camera-space depths.
 
 ## Parallax motion profile
 
-The seven full-screen plates keep the same geometry and camera direction, but
-their camera-space depths are remapped so motion now behaves correctly:
+The seven full-screen plates keep the same geometry and camera direction.
 
-- outer/top plate: visually anchored, approximately zero motion;
-- each deeper plate: progressively larger motion;
-- deepest plate: largest motion.
+The previous reference-like depth magnitudes are preserved exactly, but their
+layer assignment is reversed. This means the motion amplitudes are fully
+reversed while the spacing/proportions between layers remain unchanged.
 
-The source `make_assets.py` depths are still retained as metadata, but the
-render depths are geometrically distributed from a large top anchor to the
-original deepest depth:
+Source depths, outer -> inner:
 
 ```text
-1000.000000
-391.104258
-152.962541
-59.824301
-23.397539
-9.150877
+1.000000
+1.136490
+1.316129
+1.563218
+1.924528
+2.503067
 3.578947
 ```
 
-The top value is intentionally very large so its apparent motion is effectively
-zero under the shared camera-motion model.
+Render depths, outer -> inner:
+
+```text
+3.578947
+2.503067
+1.924528
+1.563218
+1.316129
+1.136490
+1.000000
+```
+
+So the outer layer receives the former deepest layer's motion magnitude, and the
+deepest layer receives the former outer layer's motion magnitude, with all
+intermediate relationships kept proportional.
 
 ## Camera
 
