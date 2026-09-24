@@ -19,38 +19,67 @@ opening 4   x=405..885,  y=1180..1750, radius=82
 final hole  circle radius=165
 ```
 
-## Highlight direction
+## No highlight overlay
 
-The current version restores the earlier highlight behavior:
+All per-layer highlight / glow effects are disabled in this revision.
 
-- the highlight belongs to the **current plate**;
-- brightness rises softly as the plate approaches its own cut-out edge;
-- there is no dark shadow;
-- two blur scales are combined so the transition is broad and soft rather than
-  a hard glowing outline.
+- cut-out edges are sharp alpha boundaries;
+- plate faces are flat colors;
+- the bottom full-screen image has no center glow.
 
-## Parallax geometry
+This isolates texture sharpness and parallax geometry from lighting effects.
 
-The sharp per-layer overscan layout is restored:
+## Depth proportional to window size
+
+Each stage is assigned a linear window-size metric:
+
+```text
+linear size = sqrt(window area)
+```
+
+For the final circular window, the diameter is used directly. The six stage
+windows are:
+
+```text
+full screen
+rounded opening 1
+rounded opening 2
+rounded opening 3
+rounded opening 4
+final circular opening
+```
+
+The outer full-screen stage remains at depth `55.0`. Every other main-layer
+depth is obtained by multiplying its linear window size by the same constant.
+The current generated values are approximately:
+
+```text
+55.000
+33.983
+28.714
+22.438
+15.148
+ 9.557
+```
+
+So the depth ratios now exactly follow the ratios of the corresponding window
+linear sizes instead of using hand-tuned depth values.
+
+## Overscan
+
+The sharper per-layer overscan layout remains:
 
 ```text
 1.035, 1.055, 1.085, 1.12, 1.17, 1.24
 ```
 
-This keeps more effective texture resolution on upper layers while still giving
-deeper layers enough hidden border for motion.
+## Motion direction
 
-All quads now use the normal perspective geometry again; the previous horizontal
-geometry stretch was removed so circular features remain circular.
-
-The renderer motion direction is globally reversed by setting:
+The renderer motion direction remains globally reversed:
 
 ```text
 camera.motionRange = -0.025
 ```
-
-This is intended to flip both horizontal and vertical device-motion response
-without introducing X/Y-specific geometry distortion.
 
 ## Texture quality
 
