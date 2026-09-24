@@ -1,32 +1,28 @@
 # Layered gravity demo
 
-This demo now uses **eight full-screen texture slices**:
+This demo uses **eight full-screen texture slices**:
 
 - six full-screen plates with geometrically similar rounded-rectangle cut-outs;
 - one full-screen plate with the preserved circular cut-out;
-- one full-screen bottom image revealed through that circle.
+- one full-screen bottom image.
 
 There is no highlight / glow overlay.
 
+## Stronger color contrast
+
+Adjacent layers now use more separated green/teal values so the eight-stage
+stack remains readable without synthetic edge lighting.
+
 ## Proportional rounded openings
 
-The first rounded opening keeps the established size:
+The **smallest rounded opening is restored exactly to the original size**:
 
 ```text
-1020 x 1350, corner radius 150
+480 x 570
+corner radius = 82
 ```
 
-The sixth/innermost rounded opening keeps an approximately 480 px width. The
-five transitions between them use one fixed scale ratio:
-
-```text
-ratio ≈ 0.86005894
-```
-
-Therefore every rounded opening is a uniform scale of the same base shape:
-width, height, corner radius, and rounded-rectangle perimeter all scale together.
-
-The terminal circular opening is preserved:
+The preserved center circle remains:
 
 ```text
 center = (645, 1465)
@@ -34,44 +30,62 @@ radius = 165
 diameter = 330
 ```
 
-## Layer height / depth
-
-The total parallax depth range is restored to the earlier useful range:
+All six rounded openings are uniform scales of the same 480 x 570 / r=82 base
+shape. Their current outer -> inner geometry is approximately:
 
 ```text
-outer depth = 55.0
+1020 x 1211, r=174
+ 877 x 1042, r=150
+ 754 x  896, r=129
+ 649 x  771, r=111
+ 558 x  663, r=95
+ 480 x  570, r=82
+circle diameter 330
+```
+
+This reduces the visual jump between the smallest rounded opening and the center
+circle while preserving strict geometric similarity across all rounded layers.
+
+## Larger height separation
+
+The deepest layer remains at the original near depth:
+
+```text
 inner depth = 3.7
 ```
 
-For the eight stages, relative camera-space height above the deepest stage is
-mapped linearly from the perimeter of the corresponding visible window:
+The outer layer is moved farther away:
 
 ```text
-full screen
-rounded opening 1
-rounded opening 2
-rounded opening 3
-rounded opening 4
-rounded opening 5
-rounded opening 6
-circular opening
+outer depth = 75.0
 ```
 
-So larger-perimeter windows are higher/farther and smaller-perimeter windows are
-lower/deeper, while the total motion range stays comparable to the original
-55 -> 3.7 setup.
+For the six rounded-opening plates and circular-opening plate, height above the
+bottom is strictly proportional to the opening perimeter. The bottom full-screen
+surface has zero relative height.
+
+Current depth values are approximately:
+
+```text
+75.000
+65.019
+56.423
+49.074
+42.728
+37.254
+21.455
+ 3.700
+```
 
 ## Motion direction
 
-Device-motion direction is restored to normal:
+Based on the latest device test, the offset direction is flipped again:
 
 ```text
-camera.motionRange = 0.025
+camera.motionRange = -0.025
 ```
 
 ## Overscan
-
-The eight slices use progressively larger hidden margins:
 
 ```text
 1.035, 1.048, 1.062, 1.082, 1.105, 1.135, 1.18, 1.24
