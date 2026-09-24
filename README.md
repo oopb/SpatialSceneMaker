@@ -13,6 +13,7 @@ Experimental Python generator for SpatialScene V3 bundles from an RGB image and 
 - Wraps raw ASTC blocks in the reverse-engineered `SST3` texture container.
 - Emits a V3-style `.spatialscene` directory with camera, viewport, layer frame/FOV and model transform metadata.
 - Expands the backfill projection by 1.16x, matching the framing relationship observed in a known V3 sample.
+- Supports a layered gravity demo using multiple SST3 texture-array slices and independent quads.
 
 ## Install
 
@@ -37,6 +38,22 @@ spatialscene-maker image.png depth.png -o Test.spatialscene --grid-width 65 --de
 ```
 
 The default grid width is 65 to keep the mesh near the complexity of known working bundles rather than generating hundreds of thousands of triangles.
+
+## Layered gravity demo
+
+For the recessed wallpaper effect, use the multi-slice path instead of the generic depth-map path:
+
+```powershell
+python examples/gravity/make_layered_assets.py
+
+python examples/gravity/build_layered_bundle.py `
+  examples/gravity/layered_assets `
+  -o GravityLayered.spatialscene `
+  --fov 45 `
+  --astcenc "C:\Tools\astcenc\astcenc-avx2.exe"
+```
+
+This version uses nine independent RGBA texture slices, progressively larger per-layer overscan, and a motion profile where the outer rim moves very little while deeper-looking inner layers move progressively more. See `examples/gravity/LAYERED_README.md`.
 
 ## V3 metadata compatibility
 
