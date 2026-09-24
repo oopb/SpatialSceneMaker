@@ -20,14 +20,14 @@ def _find_astcenc(explicit: str | None = None) -> str:
     raise RuntimeError("astcenc not found; install ARM astcenc or pass --astcenc")
 
 
-def encode_astc_4x4_srgb_pil(image: Image.Image, size: int = 2048, executable: str | None = None) -> bytes:
+def encode_astc_4x4_srgb_pil(\n    image: Image.Image,\n    size: int = 2048,\n    executable: str | None = None,\n    *,\n    quality: str = "medium",\n) -> bytes:
     exe = _find_astcenc(executable)
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         png = td / "texture.png"
         astc = td / "texture.astc"
         image.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS).save(png)
-        subprocess.run([exe, "-cs", str(png), str(astc), "4x4", "-medium"], check=True)
+        subprocess.run([exe, "-cs", str(png), str(astc), "4x4", f"-{quality}"], check=True)
         data = astc.read_bytes()
     if len(data) < 16 or data[:4] != ASTC_MAGIC:
         raise RuntimeError("astcenc output is not an ASTC file")
