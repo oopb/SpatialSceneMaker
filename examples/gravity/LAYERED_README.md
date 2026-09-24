@@ -31,31 +31,26 @@ The current version restores the earlier highlight behavior:
 
 ## Parallax geometry
 
-All six visual layers now use the **same overscan**:
+The sharp per-layer overscan layout is restored:
 
 ```text
-1.24, 1.24, 1.24, 1.24, 1.24, 1.24
+1.035, 1.055, 1.085, 1.12, 1.17, 1.24
 ```
 
-This is deliberate. The previous version used different overscan values per
-layer, which meant deeper layers were also physically larger quads. That mixed
-geometry scaling with depth-based parallax and could make horizontal and
-vertical tilt behave differently.
+This keeps more effective texture resolution on upper layers while still giving
+deeper layers enough hidden border for motion.
 
-Now layer-to-layer motion is controlled only by camera-space depth:
+All quads now use the normal perspective geometry again; the previous horizontal
+geometry stretch was removed so circular features remain circular.
+
+The renderer motion direction is globally reversed by setting:
 
 ```text
-outer/top     55.0   -> smallest motion
-              28.0
-              15.0
-               8.5
-               5.2
-center/bottom  3.7   -> largest motion
+camera.motionRange = -0.025
 ```
 
-With standard perspective motion, smaller camera-space depth should produce
-larger displacement on both X and Y axes. This is the normal geometry path; no
-post-process X-only scaling or per-axis helper is used.
+This is intended to flip both horizontal and vertical device-motion response
+without introducing X/Y-specific geometry distortion.
 
 ## Texture quality
 
