@@ -49,6 +49,32 @@ The same discrete depth-map grayscale values are used:
 Using the same `near=1, far=8` inverse-depth conversion as the normal gravity
 demo gives the seven camera-space depths.
 
+## Parallax motion profile
+
+The seven full-screen plates keep the same geometry and camera direction, but
+their camera-space depths are remapped so motion now behaves correctly:
+
+- outer/top plate: visually anchored, approximately zero motion;
+- each deeper plate: progressively larger motion;
+- deepest plate: largest motion.
+
+The source `make_assets.py` depths are still retained as metadata, but the
+render depths are geometrically distributed from a large top anchor to the
+original deepest depth:
+
+```text
+1000.000000
+391.104258
+152.962541
+59.824301
+23.397539
+9.150877
+3.578947
+```
+
+The top value is intentionally very large so its apparent motion is effectively
+zero under the shared camera-motion model.
+
 ## Camera
 
 The normal reference camera settings remain:
