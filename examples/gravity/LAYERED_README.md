@@ -116,22 +116,10 @@ relationship between all deeper layers. The corresponding render depths are:
 The large first depth is the finite representation of the zero-motion top
 layer.
 
-## X-only direction reversal
-
-Only horizontal motion is reversed. The main project layer uses both:
-
-```text
-modelToWorld X scale = -1
-aspectRatio          = negative
-```
-
-These two X mirrors cancel in the resting composition, while the X camera-motion
-term changes sign. Y geometry/projection is untouched, so vertical motion keeps
-its current direction.
-
 ## Camera
 
-The normal reference camera settings remain:
+The normal reference camera settings remain, with the normal renderer direction
+used on both X and Y:
 
 ```text
 camera.motionRange = 0.035
