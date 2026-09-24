@@ -10,80 +10,74 @@ There is no highlight / glow overlay.
 
 ## Stronger color contrast
 
-Adjacent layers now use more separated green/teal values so the eight-stage
-stack remains readable without synthetic edge lighting.
+Adjacent layers use separated green/teal values so the eight-stage stack remains
+readable without synthetic edge lighting.
 
-## Proportional rounded openings
+## Smaller inner openings
 
-The **smallest rounded opening is restored exactly to the original size**:
-
-```text
-480 x 570
-corner radius = 82
-```
-
-The preserved center circle remains:
+The central circle is reduced to approximately half of the previous radius:
 
 ```text
 center = (645, 1465)
-radius = 165
-diameter = 330
+radius = 82
+diameter = 164
 ```
 
-All six rounded openings are uniform scales of the same 480 x 570 / r=82 base
-shape. Their current outer -> inner geometry is approximately:
+The smallest rounded opening is also reduced:
 
 ```text
-1020 x 1211, r=174
- 877 x 1042, r=150
- 754 x  896, r=129
- 649 x  771, r=111
- 558 x  663, r=95
- 480 x  570, r=82
-circle diameter 330
+300 x 356
+corner radius = 51
 ```
 
-This reduces the visual jump between the smallest rounded opening and the center
-circle while preserving strict geometric similarity across all rounded layers.
-
-## Larger height separation
-
-The deepest layer remains at the original near depth:
+All six rounded openings remain uniform scales of the same base shape. Their
+current outer -> inner geometry is approximately:
 
 ```text
-inner depth = 3.7
+1020 x 1210, r=173
+ 799 x  948, r=136
+ 625 x  742, r=106
+ 489 x  581, r=83
+ 383 x  455, r=65
+ 300 x  356, r=51
+circle diameter 164
 ```
 
-The outer layer is moved farther away:
+## Layer height
+
+Height above the bottom remains proportional to the opening perimeter.
+
+The current depth range remains:
 
 ```text
 outer depth = 75.0
+inner depth = 3.7
 ```
 
-For the six rounded-opening plates and circular-opening plate, height above the
-bottom is strictly proportional to the opening perimeter. The bottom full-screen
-surface has zero relative height.
-
-Current depth values are approximately:
+With the smaller inner windows, the generated depths are approximately:
 
 ```text
 75.000
-65.019
-56.423
-49.074
-42.728
-37.254
-21.455
+59.543
+47.409
+37.911
+30.494
+24.671
+12.524
  3.700
 ```
 
-## Motion direction
+## Motion direction and amplitude
 
-Based on the latest device test, the offset direction is flipped again:
+The previous negative sign is removed and the motion amplitude is increased
+substantially:
 
 ```text
-camera.motionRange = -0.025
+camera.motionRange = 0.05
 ```
+
+This restores the positive offset direction and doubles the earlier 0.025 motion
+amplitude.
 
 ## Overscan
 
