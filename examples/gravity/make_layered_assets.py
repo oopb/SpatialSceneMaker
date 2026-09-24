@@ -4,7 +4,7 @@ import argparse
 import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 W, H = 1290, 2796
 
@@ -92,7 +92,7 @@ def ring_slice(outer_box, inner_shape, color, scale: float) -> Image.Image:
 
     hole = _inner_mask(canvas.size, ox, oy, inner_shape)
     # Punch the hole out of the ring.
-    ring_alpha = Image.subtract(ring_alpha, hole)
+    ring_alpha = ImageChops.subtract(ring_alpha, hole)
 
     layer = Image.new("RGBA", canvas.size, color)
     layer.putalpha(ring_alpha)
@@ -101,14 +101,9 @@ def ring_slice(outer_box, inner_shape, color, scale: float) -> Image.Image:
     # it makes the nested shapes read as a cavity even though the parallax motion
     # is deliberately non-physical (deeper-looking stages move more).
     blurred_hole = hole.filter(ImageFilter.GaussianBlur(26))
-    shadow_alpha = Image.new("L", canvas.size, 0)
-    sa = shadow_alpha.load()
-    bh = blurred_hole.load()
-    ra = ring_alpha.load()
-    for y in range(canvas.height):
-        for x in range(canvas.width):
-            if ra[x, y]:
-                sa[x, y] = int(min(82, bh[x, y] * 0.42))
+    shadow_alpha = ImageChops.multiply(blurred_hole, ring_alpha).point(
+        lambda p: min(82, int(p * 0.42))
+    )
 
     shadow = Image.new("RGBA", canvas.size, (0, 22, 18, 255))
     shadow.putalpha(shadow_alpha)
