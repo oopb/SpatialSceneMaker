@@ -27,7 +27,6 @@ def load_depth(
     norm = np.clip(arr.astype(np.float32) / maxv, 0.0, 1.0)
     if invert:
         norm = 1.0 - norm
-    # Default: white is near. Interpolate inverse depth because disparity is approximately inverse-depth.
     inv = norm / near + (1.0 - norm) / far
     depth = 1.0 / inv
     resample = Image.Resampling.NEAREST if discrete else Image.Resampling.BILINEAR
@@ -60,6 +59,48 @@ def build_grid_mesh(depth: np.ndarray, aspect: float, vertical_fov_deg: float, t
             b = a + 1
             c = a + w
             d = c + 1
-            # Matches the winding observed in SpatialSceneWallpaper samples.
             indices.extend((a, c, b, b, c, d))
+    return vertices, indices
+
+
+def build_full_frame_quad(
+    depth: float,
+    aspect: float,
+    vertical_fov_deg: float,
+    *,
+    texture_size: int = 2048,
+    texture_slice: int = 0,
+    overscan: float = 1.0,
+):
+    fy = 1.0 / math.tan(math.radians(vertical_fov_deg) * 0.5)
+    fx = fy / aspect
+    half_texel = 0.5 / texture_size
+    min_uv = half_texel
+    max_uv = 1.0 - half_texel
+
+    corners = [
+        (-overscan,  overscan, min_uv, min_uv),
+        ( overscan,  overscan, max_uv, min_uv),
+        (-overscan, -overscan, min_uv, max_uv),
+        ( overscan, -overscan, max_uv, max_uv),
+    ]
+
+    vertices: list[Vertex] = []
+    for nx, ny, u, v in corners:
+        x = nx * depth / fx
+        y = ny * depth / fy
+        vertices.append(Vertex(x, y, -depth, u, v, texture_slice))
+
+    indices = [0, 2, 1, 1, 2, 3]
+    return vertices, indices
+
+
+def merge_meshes(meshes):
+    vertices: list[Vertex] = []
+    indices: list[int] = []
+    base = 0
+    for vtx, idx in meshes:
+        vertices.extend(vtx)
+        indices.extend(base + i for i in idx)
+        base += len(vtx)
     return vertices, indices
