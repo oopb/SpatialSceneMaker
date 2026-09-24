@@ -14,55 +14,62 @@ CENTER_Y = 1465
 # six full-screen rounded-cutout plates,
 # one full-screen circular-cutout plate,
 # one full-screen bottom image.
+#
+# Increase color separation between adjacent stages so the depth stack remains
+# visually readable even without highlight/glow overlays.
 COLORS = [
-    (18, 86, 75, 255),
-    (24, 101, 86, 255),
-    (31, 119, 99, 255),
-    (40, 139, 114, 255),
-    (52, 161, 130, 255),
-    (67, 184, 148, 255),
-    (91, 207, 171, 255),
-    (137, 229, 204, 255),
+    (10, 58, 51, 255),
+    (18, 82, 70, 255),
+    (28, 108, 90, 255),
+    (40, 136, 110, 255),
+    (56, 166, 132, 255),
+    (76, 196, 154, 255),
+    (104, 220, 180, 255),
+    (154, 240, 214, 255),
 ]
 
-# Preserve the original outer rounded opening and the original innermost
-# rounded-opening width, but insert two extra rounded layers between them.
-# Every rounded opening is a uniform scale of the same base shape, so width,
-# height, corner radius and perimeter all scale by the same ratio.
-BASE_HOLE_WIDTH = 1020
-BASE_HOLE_HEIGHT = 1350
-BASE_HOLE_RADIUS = 150
+# Keep the original innermost rounded opening exactly:
+#   480 x 570, corner radius 82.
+#
+# Build all six rounded holes as uniform scales of that original inner shape.
+# This keeps width, height, corner radius and perimeter proportional while
+# reducing the size jump between the smallest rounded opening and the central
+# circular opening.
 ROUNDED_HOLE_COUNT = 6
 INNER_ROUNDED_WIDTH = 480
-HOLE_SCALE_RATIO = (
-    INNER_ROUNDED_WIDTH / BASE_HOLE_WIDTH
-) ** (1.0 / (ROUNDED_HOLE_COUNT - 1))
+INNER_ROUNDED_HEIGHT = 570
+INNER_ROUNDED_RADIUS = 82
+OUTER_ROUNDED_WIDTH = 1020
+
+TOTAL_ROUNDED_SCALE = OUTER_ROUNDED_WIDTH / INNER_ROUNDED_WIDTH
+HOLE_SCALE_RATIO = TOTAL_ROUNDED_SCALE ** (1.0 / (ROUNDED_HOLE_COUNT - 1))
 
 
-def _scaled_hole(scale: float) -> tuple[int, int, int, int, int]:
-    width = round(BASE_HOLE_WIDTH * scale)
-    height = round(BASE_HOLE_HEIGHT * scale)
-    radius = round(BASE_HOLE_RADIUS * scale)
+def _scaled_hole_from_inner(scale: float) -> tuple[int, int, int, int, int]:
+    width = round(INNER_ROUNDED_WIDTH * scale)
+    height = round(INNER_ROUNDED_HEIGHT * scale)
+    radius = round(INNER_ROUNDED_RADIUS * scale)
 
     x0 = round(CENTER_X - width / 2)
     y0 = round(CENTER_Y - height / 2)
     return x0, y0, x0 + width, y0 + height, radius
 
 
+# Outer -> inner.
 HOLE_SCALES = [
-    HOLE_SCALE_RATIO**i
-    for i in range(ROUNDED_HOLE_COUNT)
+    HOLE_SCALE_RATIO ** i
+    for i in reversed(range(ROUNDED_HOLE_COUNT))
 ]
 ROUNDED_HOLES = [
-    _scaled_hole(scale)
+    _scaled_hole_from_inner(scale)
     for scale in HOLE_SCALES
 ]
 
-# Keep the terminal circular opening from the earlier design.
+# Preserve the original central circle size.
 CENTER = (CENTER_X, CENTER_Y, 165)
 
-# Progressive hidden border for the eight slices. Upper layers keep little
-# overscan for sharpness; deeper layers get more room for parallax.
+# Progressive hidden border for the eight slices. Upper layers retain more
+# effective texture resolution; deeper layers keep extra margin for parallax.
 OVERSCANS = [1.035, 1.048, 1.062, 1.082, 1.105, 1.135, 1.18, 1.24]
 BACKGROUND_OVERSCAN = 1.32
 
@@ -122,7 +129,7 @@ def make_background(scale: float = BACKGROUND_OVERSCAN) -> Image.Image:
 
     for y in range(ch):
         t = min(1.0, max(0.0, (y - oy) / max(H - 1, 1)))
-        c = (7 + int(4 * t), 48 + int(8 * t), 42 + int(6 * t), 255)
+        c = (5 + int(4 * t), 39 + int(7 * t), 34 + int(6 * t), 255)
         draw.line((0, y, cw, y), fill=c)
 
     return canvas
@@ -191,8 +198,8 @@ def build(out_dir: Path) -> None:
         f"in {out_dir}"
     )
     print(f"rounded-hole scale ratio: {HOLE_SCALE_RATIO}")
-    print(f"rounded-hole scales: {HOLE_SCALES}")
-    print(f"rounded holes: {ROUNDED_HOLES}")
+    print(f"rounded-hole scales outer -> inner: {HOLE_SCALES}")
+    print(f"rounded holes outer -> inner: {ROUNDED_HOLES}")
     print(f"circle: {CENTER}")
     print(f"overscans: {OVERSCANS}")
 
