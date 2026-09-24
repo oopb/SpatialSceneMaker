@@ -37,13 +37,54 @@ SOURCE_PARALLAX_DEPTHS = [
     for gray in DEPTH_GRAYS
 ]
 
-# Keep exactly the same seven depth magnitudes as the previous reference-like
-# version, but assign them in the opposite layer order. This fully reverses the
-# per-layer motion amplitudes while preserving all inter-layer proportions.
-PARALLAX_DEPTHS = list(reversed(SOURCE_PARALLAX_DEPTHS))
+# Start from the current reversed ordering, then linearly remap *motion
+# amplitudes* (amplitude ~ 1 / depth), not depths:
+#
+#   top amplitude    -> 0
+#   deepest amplitude -> unchanged maximum
+#
+# Because the current source amplitudes are evenly spaced, the transformed
+# target amplitudes become exactly:
+#   0, 1/6, 2/6, 3/6, 4/6, 5/6, 1
+BASE_PARALLAX_DEPTHS = list(reversed(SOURCE_PARALLAX_DEPTHS))
+BASE_MOTION_AMPLITUDES = [
+    1.0 / depth
+    for depth in BASE_PARALLAX_DEPTHS
+]
+
+MIN_MOTION_AMPLITUDE = BASE_MOTION_AMPLITUDES[0]
+MAX_MOTION_AMPLITUDE = BASE_MOTION_AMPLITUDES[-1]
+MOTION_AFFINE_SCALE = (
+    MAX_MOTION_AMPLITUDE
+    / (MAX_MOTION_AMPLITUDE - MIN_MOTION_AMPLITUDE)
+)
+
+PARALLAX_AMPLITUDES = [
+    (amplitude - MIN_MOTION_AMPLITUDE) * MOTION_AFFINE_SCALE
+    for amplitude in BASE_MOTION_AMPLITUDES
+]
+
+# A finite mesh cannot represent an infinite depth exactly. Use a very large
+# depth for the zero-amplitude top layer; its motion is visually negligible.
+STATIC_TOP_DEPTH = 1_000_000.0
+PARALLAX_DEPTHS = [
+    STATIC_TOP_DEPTH if amplitude <= 1e-12 else 1.0 / amplitude
+    for amplitude in PARALLAX_AMPLITUDES
+]
 
 # The supplied reference bundle uses 8.4 for its V3 backfill plane.
 BACKFILL_PARALLAX_DEPTH = 8.4
+
+# X-only motion reversal:
+# mirror model X and horizontal projection X together. At rest they cancel,
+# preserving the static composition; camera-induced X displacement changes
+# sign, while Y is left unchanged.
+X_REVERSE_MODEL_MATRIX = [
+    -1, 0, 0, 0,
+     0, 1, 0, 0,
+     0, 0, 1, 0,
+     0, 0, 0, 1,
+]
 
 
 def main() -> None:
@@ -183,23 +224,39 @@ def main() -> None:
             "name": "SpatialSceneMaker make_assets layered reference",
             "strategy": (
                 "Seven full-screen cutout plates reconstructed from "
-                "make_assets.py: five nested rounded cut-outs, one circular "
-                "cut-out, and one full-screen bottom plate; exact make_assets "
-                "source depth-map levels and reference camera direction; "
-                "the previous per-layer motion amplitudes are assigned in "
-                "the exact opposite order while preserving their proportions."
+                "make_assets.py; current reversed parallax amplitudes are "
+                "affine-remapped so the top layer is static and deeper layers "
+                "increase linearly; X-only motion direction is reversed while "
+                "Y motion remains unchanged."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "sourceDepthGraysOuterToInner": DEPTH_GRAYS,
             "sourceParallaxDepthsOuterToInner": SOURCE_PARALLAX_DEPTHS,
+            "baseParallaxDepthsOuterToInner": BASE_PARALLAX_DEPTHS,
+            "baseMotionAmplitudesOuterToInner": BASE_MOTION_AMPLITUDES,
+            "parallaxAmplitudesOuterToInner": PARALLAX_AMPLITUDES,
             "parallaxDepthsOuterToInner": PARALLAX_DEPTHS,
+            "staticTopDepth": STATIC_TOP_DEPTH,
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
             "compositingOrder": "inner-to-outer",
+            "xMotionReversed": True,
             "textureSize": args.texture_size,
             "astcQuality": args.astc_quality,
         }
     )
+
+    # Reverse only horizontal motion on the main layer:
+    # - model X mirror
+    # - horizontal projection mirror through a negative aspect ratio
+    # The two mirrors cancel at rest but flip the sign of X camera displacement.
+    main_layer = next(
+        layer
+        for layer in project["layers"]
+        if layer["role"] == "main"
+    )
+    main_layer["modelToWorldColumnMajor"] = X_REVERSE_MODEL_MATRIX
+    main_layer["aspectRatio"] = -abs(main_layer["aspectRatio"])
 
     # Commit-history check:
     # - ef4ee9a: +0.030 (first layered implementation)
@@ -224,8 +281,11 @@ def main() -> None:
     )
     print(f"depth grays outer -> inner: {DEPTH_GRAYS}")
     print(f"source depths outer -> inner: {SOURCE_PARALLAX_DEPTHS}")
-    print(f"reversed parallax depths outer -> inner: {PARALLAX_DEPTHS}")
+    print(f"base reversed depths outer -> inner: {BASE_PARALLAX_DEPTHS}")
+    print(f"linearized motion amplitudes outer -> inner: {PARALLAX_AMPLITUDES}")
+    print(f"render depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
+    print("X motion direction: reversed; Y motion direction: unchanged")
     print("camera: motionRange=+0.035, overscan=0.015")
     print("draw/compositing order: inner -> outer")
 
