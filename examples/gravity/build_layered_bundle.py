@@ -75,17 +75,6 @@ PARALLAX_DEPTHS = [
 # The supplied reference bundle uses 8.4 for its V3 backfill plane.
 BACKFILL_PARALLAX_DEPTH = 8.4
 
-# X-only motion reversal:
-# mirror model X and horizontal projection X together. At rest they cancel,
-# preserving the static composition; camera-induced X displacement changes
-# sign, while Y is left unchanged.
-X_REVERSE_MODEL_MATRIX = [
-    -1, 0, 0, 0,
-     0, 1, 0, 0,
-     0, 0, 1, 0,
-     0, 0, 0, 1,
-]
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(
@@ -226,8 +215,8 @@ def main() -> None:
                 "Seven full-screen cutout plates reconstructed from "
                 "make_assets.py; current reversed parallax amplitudes are "
                 "affine-remapped so the top layer is static and deeper layers "
-                "increase linearly; X-only motion direction is reversed while "
-                "Y motion remains unchanged."
+                "increase linearly; normal camera motion direction is used "
+                "for both X and Y."
             ),
             "layerCount": len(PARALLAX_DEPTHS),
             "sourceDepthGraysOuterToInner": DEPTH_GRAYS,
@@ -240,23 +229,10 @@ def main() -> None:
             "layerOverscansOuterToInner": OVERSCANS,
             "backgroundOverscan": BACKGROUND_OVERSCAN,
             "compositingOrder": "inner-to-outer",
-            "xMotionReversed": True,
             "textureSize": args.texture_size,
             "astcQuality": args.astc_quality,
         }
     )
-
-    # Reverse only horizontal motion on the main layer:
-    # - model X mirror
-    # - horizontal projection mirror through a negative aspect ratio
-    # The two mirrors cancel at rest but flip the sign of X camera displacement.
-    main_layer = next(
-        layer
-        for layer in project["layers"]
-        if layer["role"] == "main"
-    )
-    main_layer["modelToWorldColumnMajor"] = X_REVERSE_MODEL_MATRIX
-    main_layer["aspectRatio"] = -abs(main_layer["aspectRatio"])
 
     # Commit-history check:
     # - ef4ee9a: +0.030 (first layered implementation)
@@ -285,7 +261,7 @@ def main() -> None:
     print(f"linearized motion amplitudes outer -> inner: {PARALLAX_AMPLITUDES}")
     print(f"render depths outer -> inner: {PARALLAX_DEPTHS}")
     print(f"overscans outer -> inner: {OVERSCANS}")
-    print("X motion direction: reversed; Y motion direction: unchanged")
+    print("camera motion direction: normal on both X and Y")
     print("camera: motionRange=+0.035, overscan=0.015")
     print("draw/compositing order: inner -> outer")
 
