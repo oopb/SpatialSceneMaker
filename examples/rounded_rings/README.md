@@ -64,12 +64,15 @@ the existing inner rounded-rectangle mask, blurred outward into the visible ring
 and blended with a brighter tint. This does not change any inner or outer
 geometry; it only adds a gentle brightness gradient along the inner edge.
 
-The full-screen bottom layer now has its own centered highlight. Its bright core
-is a `40x64` rounded rectangle with radius `12`, smaller than the smallest
-`70x105` ring opening so it remains visible through every inner cut-out. A
-two-stage Gaussian halo spreads outward from the core, while the core itself is
-kept moderately brighter than the surrounding glow. The safety backfill stays
-flat and does not receive this center highlight.
+The full-screen bottom layer has a centered light-aperture effect. The aperture
+is a `32x50` rounded rectangle with radius `10`, comfortably smaller than the
+smallest `70x105` ring opening. Its center is rendered almost white
+(`252,255,254`), with a feathered near-white boundary and three progressively
+wider rounded-rectangle Gaussian halos. The close halo keeps the rectangular
+shape of the opening, while the medium and wide halos diffuse into the dark
+surface, making the result look more like light entering through a small
+rounded-rectangle hole instead of a flat bright patch. The safety backfill
+remains flat and does not receive this center highlight.
 
 ## Motion profile
 

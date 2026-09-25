@@ -38,8 +38,8 @@ BOTTOM_COLOR = (8, 40, 38, 255)
 # Center highlight on the full-screen bottom layer. The core rounded rectangle
 # is intentionally smaller than the smallest ring opening (70x105), so it stays
 # visible through every inner cut-out.
-BOTTOM_HIGHLIGHT_SIZE = (40, 64)
-BOTTOM_HIGHLIGHT_RADIUS = 12
+BOTTOM_HIGHLIGHT_SIZE = (32, 50)
+BOTTOM_HIGHLIGHT_RADIUS = 10
 
 # Upper layers move more, so give them larger hidden texture margins.
 # The final value belongs to the full-screen bottom layer.
@@ -182,48 +182,82 @@ def bottom_surface(
         fill=255,
     )
 
-    # A soft two-stage glow: a wide low-opacity halo plus a tighter brighter
-    # halo. Both radiate from the center rounded rectangle.
-    wide_alpha = core_mask.filter(
-        ImageFilter.GaussianBlur(radius=18.0)
+    # Simulate light entering through a small rounded-rectangle aperture.
+    # Keep the glow rectangular close to the opening, then let it diffuse into
+    # a softer bloom farther away. Each outside halo excludes the aperture
+    # itself so the transition is built around, rather than on top of, the
+    # bright opening.
+    wide_alpha = ImageChops.subtract(
+        core_mask.filter(ImageFilter.GaussianBlur(radius=30.0)),
+        core_mask,
     ).point(
-        lambda value: min(255, int(value * 0.42))
+        lambda value: min(255, int(value * 0.72))
     )
-    tight_alpha = core_mask.filter(
-        ImageFilter.GaussianBlur(radius=8.0)
+    medium_alpha = ImageChops.subtract(
+        core_mask.filter(ImageFilter.GaussianBlur(radius=14.0)),
+        core_mask,
     ).point(
-        lambda value: min(255, int(value * 0.50))
+        lambda value: min(255, int(value * 0.95))
     )
-    halo_alpha = ImageChops.lighter(wide_alpha, tight_alpha)
+    tight_alpha = ImageChops.subtract(
+        core_mask.filter(ImageFilter.GaussianBlur(radius=5.5)),
+        core_mask,
+    ).point(
+        lambda value: min(255, int(value * 1.35))
+    )
 
-    halo_rgb = tuple(
-        min(255, int(channel + (255 - channel) * 0.28))
-        for channel in color[:3]
-    )
-    halo = Image.new(
-        "RGBA",
-        canvas.size,
-        halo_rgb + (0,),
-    )
-    halo.putalpha(halo_alpha)
-    layer = Image.alpha_composite(layer, halo)
-
-    # Keep the center rounded rectangle itself visibly brighter than the halo.
-    core_rgb = tuple(
-        min(255, int(channel + (255 - channel) * 0.46))
-        for channel in color[:3]
-    )
-    core = Image.new(
-        "RGBA",
-        canvas.size,
-        core_rgb + (0,),
-    )
-    core.putalpha(
-        core_mask.point(
-            lambda value: min(255, int(value * 0.72))
+    for glow_alpha, glow_rgb in (
+        (wide_alpha, (74, 154, 143)),
+        (medium_alpha, (152, 226, 210)),
+        (tight_alpha, (226, 250, 242)),
+    ):
+        glow = Image.new(
+            "RGBA",
+            canvas.size,
+            glow_rgb + (0,),
         )
+        glow.putalpha(glow_alpha)
+        layer = Image.alpha_composite(layer, glow)
+
+    # Feather the aperture boundary itself so the transition from the almost
+    # white opening into the surrounding bloom is not a hard cut.
+    feathered_core_alpha = core_mask.filter(
+        ImageFilter.GaussianBlur(radius=2.2)
+    ).point(
+        lambda value: min(255, int(value * 0.92))
     )
-    return Image.alpha_composite(layer, core)
+    feathered_core = Image.new(
+        "RGBA",
+        canvas.size,
+        (238, 255, 249, 0),
+    )
+    feathered_core.putalpha(feathered_core_alpha)
+    layer = Image.alpha_composite(layer, feathered_core)
+
+    # The actual light aperture is nearly white. Use a slightly smaller hot
+    # center so the bright area still has a gentle falloff before its edge.
+    hot_w = max(8, highlight_w - 6)
+    hot_h = max(8, highlight_h - 8)
+    hot_box = _centered_box(
+        hot_w,
+        hot_h,
+        ox=ox,
+        oy=oy,
+    )
+    hot_mask = Image.new("L", canvas.size, 0)
+    hot_draw = ImageDraw.Draw(hot_mask)
+    hot_draw.rounded_rectangle(
+        hot_box,
+        radius=max(2, BOTTOM_HIGHLIGHT_RADIUS - 2),
+        fill=248,
+    )
+    hot = Image.new(
+        "RGBA",
+        canvas.size,
+        (252, 255, 254, 0),
+    )
+    hot.putalpha(hot_mask)
+    return Image.alpha_composite(layer, hot)
 
 
 def build(out_dir: Path) -> None:
