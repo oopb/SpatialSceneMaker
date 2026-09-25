@@ -61,9 +61,9 @@ teal bottom surface.
 
 Each ring also has a soft inner-rim highlight. The highlight is generated from
 the existing inner rounded-rectangle mask, blurred outward into the visible ring
-and blended with a brighter tint. Highlight strength now increases progressively
-from the top ring to the deepest ring, so inner rims closer to the bottom light
-source appear brighter. This does not change any inner or outer geometry.
+and blended with a brighter tint. All six rings use the same highlight strength;
+there is no depth-dependent brightening. This does not change any inner or outer
+geometry.
 
 The full-screen bottom layer has a centered light-aperture effect. The aperture
 is now a slightly larger `40x64` rounded rectangle with radius `12`, still

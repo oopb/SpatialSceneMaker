@@ -76,8 +76,6 @@ def rounded_ring(
     inner_radius: int,
     color: tuple[int, int, int, int],
     scale: float,
-    *,
-    highlight_level: float = 0.0,
 ) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
 
@@ -136,18 +134,12 @@ def rounded_ring(
         highlight_alpha,
         alpha,
     )
-    # Make inner-rim illumination progressively stronger toward the deeper
-    # rings. Geometry is unchanged; only tint and alpha increase with depth.
-    highlight_level = min(1.0, max(0.0, highlight_level))
-    alpha_scale = 0.90 + 0.65 * highlight_level
-    tint_mix = 0.30 + 0.42 * highlight_level
-
     highlight_alpha = highlight_alpha.point(
-        lambda value: min(255, int(value * alpha_scale))
+        lambda value: min(255, int(value * 1.15))
     )
 
     highlight_rgb = tuple(
-        min(255, int(channel + (255 - channel) * tint_mix))
+        min(255, int(channel + (255 - channel) * 0.38))
         for channel in color[:3]
     )
     highlight = Image.new(
@@ -320,16 +312,9 @@ def build(out_dir: Path) -> None:
     )
 
     for index, spec in enumerate(RINGS):
-        highlight_level = (
-            index / (len(RINGS) - 1)
-            if len(RINGS) > 1
-            else 1.0
+        rounded_ring(*spec, OVERSCANS[index]).save(
+            out_dir / f"slice_{index:02d}.png"
         )
-        rounded_ring(
-            *spec,
-            OVERSCANS[index],
-            highlight_level=highlight_level,
-        ).save(out_dir / f"slice_{index:02d}.png")
 
     bottom_index = len(RINGS)
     bottom_surface(
