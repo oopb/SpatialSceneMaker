@@ -18,26 +18,36 @@ The deepest layer is a full-screen dark fill.
 
 ## Geometry
 
-The six rings use these outer sizes, top -> bottom:
+All six rings are concentric. From top to bottom, every ring is strictly larger
+than the one above it in both width and height, so the complete upper rounded
+rectangle sits inside the next lower rounded rectangle instead of merely
+touching its opening.
+
+Outer sizes, top -> bottom:
 
 ```text
- 420 x  700, radius  95
- 560 x  930, radius 125
- 710 x 1190, radius 155
- 860 x 1480, radius 188
-1020 x 1810, radius 225
-1180 x 2240, radius 265
+ 360 x  560, radius  90
+ 520 x  820, radius 125
+ 700 x 1120, radius 165
+ 880 x 1460, radius 205
+1040 x 1830, radius 245
+1190 x 2280, radius 285
 ```
 
-Except for the first ring's center opening, each ring's inner rounded rectangle
-is exactly the previous ring's outer rounded rectangle. This keeps the nested
-bands continuous at rest.
-
-The first inner opening is:
+The center openings are intentionally much smaller, making every ring
+substantially thicker:
 
 ```text
-260 x 460, radius 62
+120 x 190, radius  38
+180 x 290, radius  52
+250 x 400, radius  70
+320 x 530, radius  88
+390 x 680, radius 106
+470 x 860, radius 130
 ```
+
+The asset generator validates both constraints: upper-to-lower containment and
+an opening smaller than half of the corresponding outer width/height.
 
 ## Color
 
