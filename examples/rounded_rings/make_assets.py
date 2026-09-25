@@ -13,9 +13,8 @@ CENTER_Y = H // 2
 # Six concentric rounded-rectangle rings, top -> bottom.
 #
 # This is true ring-within-ring nesting:
-# - OUTER rounded rectangles grow larger toward the bottom with a compact,
-#   approximately constant 1.18x scale between adjacent layers.
-# - INNER rounded rectangles stay on the established shrinking sequence.
+# - OUTER rounded rectangles grow larger toward the bottom.
+# - INNER rounded rectangles shrink smaller toward the bottom.
 #
 # Therefore the complete visible band of ring N is contained inside the
 # visible band of ring N+1: the lower ring extends farther outward while its
@@ -25,12 +24,12 @@ CENTER_Y = H // 2
 #  inner_width, inner_height, inner_radius,
 #  RGBA color)
 RINGS = [
-    (390, 607, 98, 240, 380, 58, (126, 226, 198, 255)),
-    (460, 716, 115, 200, 315, 48, (96, 194, 169, 255)),
-    (543, 845, 136, 165, 255, 39, (70, 160, 142, 255)),
-    (641, 997, 160, 130, 200, 31, (48, 127, 115, 255)),
-    (756, 1176, 189, 100, 150, 24, (31, 96, 89, 255)),
-    (892, 1388, 223, 70, 105, 17, (19, 68, 64, 255)),
+    (360, 560, 90, 240, 380, 58, (126, 226, 198, 255)),
+    (520, 820, 125, 200, 315, 48, (96, 194, 169, 255)),
+    (700, 1120, 165, 165, 255, 39, (70, 160, 142, 255)),
+    (880, 1460, 205, 130, 200, 31, (48, 127, 115, 255)),
+    (1040, 1830, 245, 100, 150, 24, (31, 96, 89, 255)),
+    (1190, 2280, 285, 70, 105, 17, (19, 68, 64, 255)),
 ]
 
 # Deepest layer: full-screen fill, darker than every rounded ring.
