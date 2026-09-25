@@ -55,6 +55,26 @@ python examples/gravity/build_layered_bundle.py `
 
 This version follows `examples/gravity/make_assets.py` directly: seven main slices reconstruct the outer background, five rounded depth regions, and center circle using the same proportions and discrete depth values as the reference. Camera motion is restored to the reference-positive `motionRange=0.035` with `overscan=0.015`. See `examples/gravity/LAYERED_README.md`.
 
+
+## Rounded rings demo
+
+A second layered wallpaper is available under `examples/rounded_rings`. It uses
+six centered rounded-rectangle rings plus a full-screen bottom layer. Rings grow
+larger and darker with depth while their motion amplitude decreases.
+
+```powershell
+python examples/rounded_rings/make_assets.py
+
+python examples/rounded_rings/build_bundle.py `
+  examples/rounded_rings/assets `
+  -o RoundedRings.spatialscene `
+  --fov 45 `
+  --astcenc "C:\\Tools\\astcenc\\astcenc-avx2.exe"
+```
+
+See `examples/rounded_rings/README.md` for the exact geometry, colors, and
+motion profile.
+
 ## V3 metadata compatibility
 
 A minimal generated project contains the field families observed in known-loadable schema-v3 bundles:
