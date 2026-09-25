@@ -68,11 +68,12 @@ geometry.
 The full-screen bottom layer has a centered light-aperture effect. The aperture
 is now a slightly larger `40x64` rounded rectangle with radius `12`, still
 smaller than the smallest `70x105` ring opening. Its center remains almost
-white (`252,255,254`). The rounded-rectangle transition now spreads farther
-outward: tight, medium, and wide Gaussian halos use larger blur radii so the
-light diffuses more gradually into the dark surface while preserving the
-rectangular character close to the opening. The safety backfill remains flat
-and does not receive this center highlight.
+white (`252,255,254`). The rounded-rectangle transition now spreads much
+farther outward: the tight, medium, and wide Gaussian halo radii are
+`12 / 36 / 72`, giving the light a broader and more gradual falloff into the
+dark surface while still preserving the rectangular character close to the
+opening. The safety backfill remains flat and does not receive this center
+highlight.
 
 ## Motion profile
 

@@ -188,19 +188,19 @@ def bottom_surface(
     # itself so the transition is built around, rather than on top of, the
     # bright opening.
     wide_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=44.0)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=72.0)),
         core_mask,
     ).point(
         lambda value: min(255, int(value * 0.78))
     )
     medium_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=22.0)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=36.0)),
         core_mask,
     ).point(
         lambda value: min(255, int(value * 1.02))
     )
     tight_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=8.0)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=12.0)),
         core_mask,
     ).point(
         lambda value: min(255, int(value * 1.42))
