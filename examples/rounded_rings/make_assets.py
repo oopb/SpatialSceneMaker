@@ -38,8 +38,8 @@ BOTTOM_COLOR = (8, 40, 38, 255)
 # Center highlight on the full-screen bottom layer. The core rounded rectangle
 # is intentionally smaller than the smallest ring opening (70x105), so it stays
 # visible through every inner cut-out.
-BOTTOM_HIGHLIGHT_SIZE = (32, 50)
-BOTTOM_HIGHLIGHT_RADIUS = 10
+BOTTOM_HIGHLIGHT_SIZE = (40, 64)
+BOTTOM_HIGHLIGHT_RADIUS = 12
 
 # Upper layers move more, so give them larger hidden texture margins.
 # The final value belongs to the full-screen bottom layer.
@@ -76,6 +76,8 @@ def rounded_ring(
     inner_radius: int,
     color: tuple[int, int, int, int],
     scale: float,
+    *,
+    highlight_level: float = 0.0,
 ) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
 
@@ -134,12 +136,18 @@ def rounded_ring(
         highlight_alpha,
         alpha,
     )
+    # Make inner-rim illumination progressively stronger toward the deeper
+    # rings. Geometry is unchanged; only tint and alpha increase with depth.
+    highlight_level = min(1.0, max(0.0, highlight_level))
+    alpha_scale = 0.90 + 0.65 * highlight_level
+    tint_mix = 0.30 + 0.42 * highlight_level
+
     highlight_alpha = highlight_alpha.point(
-        lambda value: min(255, int(value * 1.15))
+        lambda value: min(255, int(value * alpha_scale))
     )
 
     highlight_rgb = tuple(
-        min(255, int(channel + (255 - channel) * 0.38))
+        min(255, int(channel + (255 - channel) * tint_mix))
         for channel in color[:3]
     )
     highlight = Image.new(
@@ -188,22 +196,22 @@ def bottom_surface(
     # itself so the transition is built around, rather than on top of, the
     # bright opening.
     wide_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=30.0)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=44.0)),
         core_mask,
     ).point(
-        lambda value: min(255, int(value * 0.72))
+        lambda value: min(255, int(value * 0.78))
     )
     medium_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=14.0)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=22.0)),
         core_mask,
     ).point(
-        lambda value: min(255, int(value * 0.95))
+        lambda value: min(255, int(value * 1.02))
     )
     tight_alpha = ImageChops.subtract(
-        core_mask.filter(ImageFilter.GaussianBlur(radius=5.5)),
+        core_mask.filter(ImageFilter.GaussianBlur(radius=8.0)),
         core_mask,
     ).point(
-        lambda value: min(255, int(value * 1.35))
+        lambda value: min(255, int(value * 1.42))
     )
 
     for glow_alpha, glow_rgb in (
@@ -222,7 +230,7 @@ def bottom_surface(
     # Feather the aperture boundary itself so the transition from the almost
     # white opening into the surrounding bloom is not a hard cut.
     feathered_core_alpha = core_mask.filter(
-        ImageFilter.GaussianBlur(radius=2.2)
+        ImageFilter.GaussianBlur(radius=3.0)
     ).point(
         lambda value: min(255, int(value * 0.92))
     )
@@ -312,9 +320,16 @@ def build(out_dir: Path) -> None:
     )
 
     for index, spec in enumerate(RINGS):
-        rounded_ring(*spec, OVERSCANS[index]).save(
-            out_dir / f"slice_{index:02d}.png"
+        highlight_level = (
+            index / (len(RINGS) - 1)
+            if len(RINGS) > 1
+            else 1.0
         )
+        rounded_ring(
+            *spec,
+            OVERSCANS[index],
+            highlight_level=highlight_level,
+        ).save(out_dir / f"slice_{index:02d}.png")
 
     bottom_index = len(RINGS)
     bottom_surface(

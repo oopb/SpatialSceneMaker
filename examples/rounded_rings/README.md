@@ -61,18 +61,18 @@ teal bottom surface.
 
 Each ring also has a soft inner-rim highlight. The highlight is generated from
 the existing inner rounded-rectangle mask, blurred outward into the visible ring
-and blended with a brighter tint. This does not change any inner or outer
-geometry; it only adds a gentle brightness gradient along the inner edge.
+and blended with a brighter tint. Highlight strength now increases progressively
+from the top ring to the deepest ring, so inner rims closer to the bottom light
+source appear brighter. This does not change any inner or outer geometry.
 
 The full-screen bottom layer has a centered light-aperture effect. The aperture
-is a `32x50` rounded rectangle with radius `10`, comfortably smaller than the
-smallest `70x105` ring opening. Its center is rendered almost white
-(`252,255,254`), with a feathered near-white boundary and three progressively
-wider rounded-rectangle Gaussian halos. The close halo keeps the rectangular
-shape of the opening, while the medium and wide halos diffuse into the dark
-surface, making the result look more like light entering through a small
-rounded-rectangle hole instead of a flat bright patch. The safety backfill
-remains flat and does not receive this center highlight.
+is now a slightly larger `40x64` rounded rectangle with radius `12`, still
+smaller than the smallest `70x105` ring opening. Its center remains almost
+white (`252,255,254`). The rounded-rectangle transition now spreads farther
+outward: tight, medium, and wide Gaussian halos use larger blur radii so the
+light diffuses more gradually into the dark surface while preserving the
+rectangular character close to the opening. The safety backfill remains flat
+and does not receive this center highlight.
 
 ## Motion profile
 
