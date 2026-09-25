@@ -64,6 +64,13 @@ the existing inner rounded-rectangle mask, blurred outward into the visible ring
 and blended with a brighter tint. This does not change any inner or outer
 geometry; it only adds a gentle brightness gradient along the inner edge.
 
+The full-screen bottom layer now has its own centered highlight. Its bright core
+is a `40x64` rounded rectangle with radius `12`, smaller than the smallest
+`70x105` ring opening so it remains visible through every inner cut-out. A
+two-stage Gaussian halo spreads outward from the core, while the core itself is
+kept moderately brighter than the surrounding glow. The safety backfill stays
+flat and does not receive this center highlight.
+
 ## Motion profile
 
 Motion amplitude decreases linearly-ish from top to bottom:

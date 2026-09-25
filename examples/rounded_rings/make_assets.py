@@ -35,6 +35,12 @@ RINGS = [
 # Deepest layer: full-screen fill, darker than every rounded ring.
 BOTTOM_COLOR = (8, 40, 38, 255)
 
+# Center highlight on the full-screen bottom layer. The core rounded rectangle
+# is intentionally smaller than the smallest ring opening (70x105), so it stays
+# visible through every inner cut-out.
+BOTTOM_HIGHLIGHT_SIZE = (40, 64)
+BOTTOM_HIGHLIGHT_RADIUS = 12
+
 # Upper layers move more, so give them larger hidden texture margins.
 # The final value belongs to the full-screen bottom layer.
 OVERSCANS = [1.24, 1.20, 1.17, 1.14, 1.11, 1.08, 1.05]
@@ -151,9 +157,73 @@ def rounded_ring(
 def bottom_surface(
     color: tuple[int, int, int, int],
     scale: float,
+    *,
+    center_highlight: bool = False,
 ) -> Image.Image:
-    canvas, _, _ = _expanded_canvas(scale)
-    return Image.new("RGBA", canvas.size, color)
+    canvas, ox, oy = _expanded_canvas(scale)
+    layer = Image.new("RGBA", canvas.size, color)
+
+    if not center_highlight:
+        return layer
+
+    highlight_w, highlight_h = BOTTOM_HIGHLIGHT_SIZE
+    core_box = _centered_box(
+        highlight_w,
+        highlight_h,
+        ox=ox,
+        oy=oy,
+    )
+
+    core_mask = Image.new("L", canvas.size, 0)
+    core_draw = ImageDraw.Draw(core_mask)
+    core_draw.rounded_rectangle(
+        core_box,
+        radius=BOTTOM_HIGHLIGHT_RADIUS,
+        fill=255,
+    )
+
+    # A soft two-stage glow: a wide low-opacity halo plus a tighter brighter
+    # halo. Both radiate from the center rounded rectangle.
+    wide_alpha = core_mask.filter(
+        ImageFilter.GaussianBlur(radius=18.0)
+    ).point(
+        lambda value: min(255, int(value * 0.42))
+    )
+    tight_alpha = core_mask.filter(
+        ImageFilter.GaussianBlur(radius=8.0)
+    ).point(
+        lambda value: min(255, int(value * 0.50))
+    )
+    halo_alpha = ImageChops.lighter(wide_alpha, tight_alpha)
+
+    halo_rgb = tuple(
+        min(255, int(channel + (255 - channel) * 0.28))
+        for channel in color[:3]
+    )
+    halo = Image.new(
+        "RGBA",
+        canvas.size,
+        halo_rgb + (0,),
+    )
+    halo.putalpha(halo_alpha)
+    layer = Image.alpha_composite(layer, halo)
+
+    # Keep the center rounded rectangle itself visibly brighter than the halo.
+    core_rgb = tuple(
+        min(255, int(channel + (255 - channel) * 0.46))
+        for channel in color[:3]
+    )
+    core = Image.new(
+        "RGBA",
+        canvas.size,
+        core_rgb + (0,),
+    )
+    core.putalpha(
+        core_mask.point(
+            lambda value: min(255, int(value * 0.72))
+        )
+    )
+    return Image.alpha_composite(layer, core)
 
 
 def build(out_dir: Path) -> None:
@@ -216,6 +286,7 @@ def build(out_dir: Path) -> None:
     bottom_surface(
         BOTTOM_COLOR,
         OVERSCANS[bottom_index],
+        center_highlight=True,
     ).save(out_dir / f"slice_{bottom_index:02d}.png")
 
     print(
