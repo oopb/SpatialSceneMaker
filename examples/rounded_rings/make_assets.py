@@ -4,7 +4,7 @@ import argparse
 import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 W, H = 1290, 2796
 CENTER_X = W // 2
@@ -73,21 +73,77 @@ def rounded_ring(
 ) -> Image.Image:
     canvas, ox, oy = _expanded_canvas(scale)
 
+    outer_box = _centered_box(
+        outer_width,
+        outer_height,
+        ox=ox,
+        oy=oy,
+    )
+    inner_box = _centered_box(
+        inner_width,
+        inner_height,
+        ox=ox,
+        oy=oy,
+    )
+
     alpha = Image.new("L", canvas.size, 0)
     draw = ImageDraw.Draw(alpha)
-
     draw.rounded_rectangle(
-        _centered_box(outer_width, outer_height, ox=ox, oy=oy),
+        outer_box,
         radius=outer_radius,
         fill=255,
     )
     draw.rounded_rectangle(
-        _centered_box(inner_width, inner_height, ox=ox, oy=oy),
+        inner_box,
         radius=inner_radius,
         fill=0,
     )
 
     layer = Image.new("RGBA", canvas.size, color)
+    layer.putalpha(alpha)
+
+    # Add a soft highlight just outside the inner opening. The inner geometry
+    # itself is untouched: we blur the opening mask, keep only the blur that
+    # spills outward into the visible ring, then composite a brighter tint.
+    inner_mask = Image.new("L", canvas.size, 0)
+    inner_draw = ImageDraw.Draw(inner_mask)
+    inner_draw.rounded_rectangle(
+        inner_box,
+        radius=inner_radius,
+        fill=255,
+    )
+
+    blur_radius = max(
+        10.0,
+        min(28.0, min(inner_width, inner_height) * 0.10),
+    )
+    blurred_inner = inner_mask.filter(
+        ImageFilter.GaussianBlur(radius=blur_radius)
+    )
+    highlight_alpha = ImageChops.subtract(
+        blurred_inner,
+        inner_mask,
+    )
+    highlight_alpha = ImageChops.multiply(
+        highlight_alpha,
+        alpha,
+    )
+    highlight_alpha = highlight_alpha.point(
+        lambda value: min(255, int(value * 1.15))
+    )
+
+    highlight_rgb = tuple(
+        min(255, int(channel + (255 - channel) * 0.38))
+        for channel in color[:3]
+    )
+    highlight = Image.new(
+        "RGBA",
+        canvas.size,
+        highlight_rgb + (0,),
+    )
+    highlight.putalpha(highlight_alpha)
+
+    layer = Image.alpha_composite(layer, highlight)
     layer.putalpha(alpha)
     return layer
 
