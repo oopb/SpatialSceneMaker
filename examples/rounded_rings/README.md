@@ -32,13 +32,19 @@ inward.
 Outer sizes, top -> bottom:
 
 ```text
- 360 x  560, radius  90
- 520 x  820, radius 125
- 700 x 1120, radius 165
- 880 x 1460, radius 205
-1040 x 1830, radius 245
-1190 x 2280, radius 285
+390 x  607, radius  98
+460 x  716, radius 115
+543 x  845, radius 136
+641 x  997, radius 160
+756 x 1176, radius 189
+892 x 1388, radius 223
 ```
+
+The outer geometry uses a compact, approximately constant `1.18x` scale from
+one layer to the next. Width, height, and corner radius are scaled together, so
+the outer rounded rectangles keep the same proportions. Compared with the
+previous version, the top outer ring is slightly larger for more thickness,
+while progressively deeper outer rings are compressed much more.
 
 Inner openings, top -> bottom:
 
@@ -51,8 +57,9 @@ Inner openings, top -> bottom:
  70 x 105, radius 17
 ```
 
-The generator validates both monotonic directions: outer bounds/radii must grow
-and inner openings/radii must shrink.
+The inner openings are unchanged from the previous version. The generator still
+validates both monotonic directions: outer bounds/radii must grow and inner
+openings/radii must shrink.
 
 ## Color
 
