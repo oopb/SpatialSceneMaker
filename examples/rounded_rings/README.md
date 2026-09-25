@@ -59,6 +59,11 @@ and inner openings/radii must shrink.
 The palette transitions from bright teal-green on the top ring to a very dark
 teal bottom surface.
 
+Each ring also has a soft inner-rim highlight. The highlight is generated from
+the existing inner rounded-rectangle mask, blurred outward into the visible ring
+and blended with a brighter tint. This does not change any inner or outer
+geometry; it only adds a gentle brightness gradient along the inner edge.
+
 ## Motion profile
 
 Motion amplitude decreases linearly-ish from top to bottom:
