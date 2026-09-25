@@ -10,23 +10,26 @@ W, H = 1290, 2796
 CENTER_X = W // 2
 CENTER_Y = H // 2
 
-# Six rounded-rectangle rings, top -> bottom.
+# Six concentric rounded-rectangle rings, top -> bottom.
 #
-# The rings are concentric, and every upper ring's OUTER rounded rectangle is
-# strictly contained inside the next lower ring's OUTER rounded rectangle.
-# The openings are deliberately much smaller than the outer shapes so the
-# visible bands are thick instead of thin outlines.
+# This is true ring-within-ring nesting:
+# - OUTER rounded rectangles grow larger toward the bottom.
+# - INNER rounded rectangles shrink smaller toward the bottom.
+#
+# Therefore the complete visible band of ring N is contained inside the
+# visible band of ring N+1: the lower ring extends farther outward while its
+# hole retreats farther inward.
 #
 # (outer_width, outer_height, outer_radius,
 #  inner_width, inner_height, inner_radius,
 #  RGBA color)
 RINGS = [
-    (360, 560, 90, 120, 190, 38, (126, 226, 198, 255)),
-    (520, 820, 125, 180, 290, 52, (96, 194, 169, 255)),
-    (700, 1120, 165, 250, 400, 70, (70, 160, 142, 255)),
-    (880, 1460, 205, 320, 530, 88, (48, 127, 115, 255)),
-    (1040, 1830, 245, 390, 680, 106, (31, 96, 89, 255)),
-    (1190, 2280, 285, 470, 860, 130, (19, 68, 64, 255)),
+    (360, 560, 90, 240, 380, 58, (126, 226, 198, 255)),
+    (520, 820, 125, 200, 315, 48, (96, 194, 169, 255)),
+    (700, 1120, 165, 165, 255, 39, (70, 160, 142, 255)),
+    (880, 1460, 205, 130, 200, 31, (48, 127, 115, 255)),
+    (1040, 1830, 245, 100, 150, 24, (31, 96, 89, 255)),
+    (1190, 2280, 285, 70, 105, 17, (19, 68, 64, 255)),
 ]
 
 # Deepest layer: full-screen fill, darker than every rounded ring.
@@ -100,21 +103,44 @@ def bottom_surface(
 def build(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Guard the intended visual hierarchy: each deeper ring must fully contain
-    # the previous ring in both screen axes, and every cut-out must remain
-    # substantially smaller than its own outer rounded rectangle.
+    # Validate true ring-within-ring nesting:
+    # outer bounds must grow while holes must shrink. For concentric rings,
+    # these two conditions make every upper visible ring lie inside the next
+    # lower visible ring.
     for index, ring in enumerate(RINGS):
-        ow, oh, _, iw, ih, _, _ = ring
-        if not (iw < ow * 0.5 and ih < oh * 0.5):
+        ow, oh, outer_r, iw, ih, inner_r, _ = ring
+        if not (iw < ow and ih < oh):
             raise ValueError(
-                f"Ring {index} opening is too large: outer={ow}x{oh}, "
+                f"Ring {index} has invalid geometry: outer={ow}x{oh}, "
                 f"inner={iw}x{ih}"
             )
+        if not (0 < inner_r < outer_r):
+            raise ValueError(
+                f"Ring {index} radii must satisfy 0 < inner < outer"
+            )
+
         if index:
-            prev_ow, prev_oh = RINGS[index - 1][0], RINGS[index - 1][1]
-            if not (prev_ow < ow and prev_oh < oh):
+            prev = RINGS[index - 1]
+            prev_ow, prev_oh, prev_outer_r = prev[0], prev[1], prev[2]
+            prev_iw, prev_ih, prev_inner_r = prev[3], prev[4], prev[5]
+
+            if not (
+                prev_ow < ow
+                and prev_oh < oh
+                and prev_outer_r < outer_r
+            ):
                 raise ValueError(
-                    f"Ring {index - 1} must fit fully inside ring {index}"
+                    f"Ring {index} outer rounded rectangle must fully grow "
+                    f"beyond ring {index - 1}"
+                )
+
+            if not (
+                iw < prev_iw
+                and ih < prev_ih
+                and inner_r < prev_inner_r
+            ):
+                raise ValueError(
+                    f"Ring {index} opening must shrink inside ring {index - 1}"
                 )
 
     for old in out_dir.glob("slice_*.png"):
